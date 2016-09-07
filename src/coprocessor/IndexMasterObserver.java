@@ -11,36 +11,31 @@ import org.apache.hadoop.hbase.coprocessor.BaseMasterObserver;
 import org.apache.hadoop.hbase.coprocessor.MasterCoprocessorEnvironment;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.master.MasterServices;
+import org.apache.hadoop.hbase.master.handler.CreateTableHandler;
 
 public class IndexMasterObserver extends BaseMasterObserver {
-	
-	
 
 	@Override
 	public void preCreateTable(ObserverContext<MasterCoprocessorEnvironment> ctx, HTableDescriptor desc,
 			HRegionInfo[] regions) throws IOException {
-		
+
 		MasterServices master = ctx.getEnvironment().getMasterServices();
-		
+
 		Configuration conf = master.getConfiguration();
 
 		String tableName = desc.getNameAsString();
 		HColumnDescriptor[] columnDescs = desc.getColumnFamilies();
 
-		String[] columns = new String[columnDescs.length];
-		
-		HTableDescriptor indextable = new HTableDescriptor("testIndex");
-		for(HColumnDescriptor colDesc : columnDescs){
+		HTableDescriptor indextable = new HTableDescriptor(tableName + "test");
+		for (HColumnDescriptor colDesc : columnDescs) {
 			indextable.addFamily(colDesc);
 		}
-		
-		HBaseAdmin admin = new HBaseAdmin(conf);
-		admin.createTable(indextable);
-		
-		admin.close();
+		HRegionInfo[] hRegionInfos = new HRegionInfo[] { new HRegionInfo(indextable.getName(), null, null) };
+		;
+
+		new CreateTableHandler(master, master.getMasterFileSystem(), master.getServerManager(), indextable, conf,
+				hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
+
 	}
-	
-	
-	
-	
+
 }
