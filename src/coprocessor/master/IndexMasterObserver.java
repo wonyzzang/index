@@ -1,4 +1,4 @@
-package coprocessor;
+package coprocessor.master;
 
 import java.io.IOException;
 
@@ -31,7 +31,6 @@ public class IndexMasterObserver extends BaseMasterObserver {
 			indextable.addFamily(colDesc);
 		}
 		HRegionInfo[] hRegionInfos = new HRegionInfo[] { new HRegionInfo(indextable.getName(), null, null) };
-		;
 
 		new CreateTableHandler(master, master.getMasterFileSystem(), master.getServerManager(), indextable, conf,
 				hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
