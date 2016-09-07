@@ -37,5 +37,12 @@ public class IndexMasterObserver extends BaseMasterObserver {
 				hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
 
 	}
+<<<<<<< HEAD
 
+=======
+	System.out.println("...");
+	
+	
+	
+>>>>>>> origin/master
 }
