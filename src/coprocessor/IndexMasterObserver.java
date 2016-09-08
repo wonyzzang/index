@@ -39,7 +39,7 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		
 		admin.close();
 	}
-	
+	System.out.println("...");
 	
 	
 	
