@@ -11,4 +11,7 @@ public class IdxConstants {
 	
 	// index table's column qualifier name
 	public static final byte[] IDX_QUALIFIER = Bytes.toBytes("IND");
+	
+	// index table's column value
+	public static final byte[] IDX_VALUE = Bytes.toBytes("0");
 }

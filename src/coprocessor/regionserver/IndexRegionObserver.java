@@ -2,6 +2,8 @@ package coprocessor.regionserver;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -21,6 +23,7 @@ import org.apache.hadoop.hbase.regionserver.RegionServerServices;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import coprocessor.scanner.IndexRegionScanner;
 import util.IdxConstants;
 import util.TableUtils;
 
@@ -33,8 +36,6 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			throws IOException {
 		LOG.info("PrePut START");
 
-		RegionServerServices regionServer = ctx.getEnvironment().getRegionServerServices();
-
 		// get user table
 		String tableName = ctx.getEnvironment().getRegion().getRegionInfo().getTableNameAsString();
 		HTableInterface inter = ctx.getEnvironment().getTable(Bytes.toBytes(tableName));
@@ -42,23 +43,35 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		HTableDescriptor tableDesc = inter.getTableDescriptor();
 		HColumnDescriptor[] colDescs = tableDesc.getColumnFamilies();
 
-		boolean isUserTable = !(TableUtils.isSystemTable(Bytes.toBytes(tableName))
-				|| TableUtils.isIndexTable(Bytes.toBytes(tableName)));
+		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 
 		// if table is not user table, it is not performed
+		// index table rowkey - region start key + "idx" + all qualifier number
+		// and value + user table rowkey -
 		if (isUserTable) {
-			List<KeyValue> list = put.get(Bytes.toBytes(colDescs[0].getNameAsString()), Bytes.toBytes("qual1"));
-			KeyValue num0 = list.get(0);
+			HRegion region = ctx.getEnvironment().getRegion();
+			String startKey = Bytes.toString(region.getStartKey());
 
-			String rowkey = colDescs[0].getNameAsString() + "qual1" + Bytes.toString(num0.getValue());
-			LOG.info("rowkey is " + rowkey);
-			Put p = new Put(Bytes.toBytes(rowkey));
-			p.add(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, Bytes.toBytes("val1"));
+			String rowKey = startKey + "idx";
 
-			List<HRegion> regions = ctx.getEnvironment().getRegionServerServices()
+			Map<byte[], List<KeyValue>> map = put.getFamilyMap();
+			List<KeyValue> list = map.get(colDescs[0].getName());
+
+			for (KeyValue kv : list) {
+				String qual = Bytes.toString(kv.getQualifier());
+				qual = qual.substring(1);
+				qual += Bytes.toString(kv.getValue());
+				rowKey += qual;
+			}
+			rowKey += Bytes.toString(put.getRow());
+
+			Put idxPut = new Put(Bytes.toBytes(rowKey));
+			idxPut.add(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, IdxConstants.IDX_VALUE);
+
+			List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
 					.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
-			HRegion region = regions.get(0);
-			region.put(p);
+			HRegion idxRegion = idxRegions.get(0);
+			idxRegion.put(idxPut);
 		}
 
 		LOG.info("PrePut END");
@@ -68,23 +81,30 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public void preGet(ObserverContext<RegionCoprocessorEnvironment> ctx, Get get, List<KeyValue> results)
 			throws IOException {
 
-		LOG.info("PreGet START");
-
-		RegionServerServices regionServer = ctx.getEnvironment().getRegionServerServices();
-
-		String tableName = ctx.getEnvironment().getRegion().getRegionInfo().getTableNameAsString();
-		LOG.info("PreGet : " + tableName);
-		HTableInterface inter = ctx.getEnvironment().getTable(Bytes.toBytes(tableName));
-
-		HTableDescriptor tableDesc = inter.getTableDescriptor();
-		LOG.info("PreGet Col: " + tableDesc.getColumnFamilies()[0]);
-		LOG.info("PreGet END");
 	}
 
 	@Override
-	public RegionScanner preScannerOpen(ObserverContext<RegionCoprocessorEnvironment> e, Scan scan, RegionScanner s)
+	public RegionScanner postScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Scan scan, RegionScanner s)
 			throws IOException {
-		// TODO Auto-generated method stub
-		return super.preScannerOpen(e, scan, s);
+		LOG.info("PostScannerOpen START");
+
+		String tableName = ctx.getEnvironment().getRegion().getRegionInfo().getTableNameAsString();
+		HTableInterface inter = ctx.getEnvironment().getTable(Bytes.toBytes(tableName));
+
+		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+
+		if (isUserTable) {
+			List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
+					.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
+			HRegion idxRegion = idxRegions.get(0);
+			Scan sc = new Scan();
+			sc.addFamily(IdxConstants.IDX_FAMILY);
+			RegionScanner scanner = idxRegion.getScanner(sc);
+
+			LOG.info("PostScannerOpen END");
+			return new IndexRegionScanner(scanner);
+		}
+		LOG.info("PostScannerOpen END");
+		return super.postScannerOpen(ctx, scan, s);
 	}
 }

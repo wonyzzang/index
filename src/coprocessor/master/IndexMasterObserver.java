@@ -32,7 +32,7 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		MasterServices master = ctx.getEnvironment().getMasterServices();
 		Configuration conf = master.getConfiguration();
 
-		// consider only one column
+		// consider only one column family
 		String tableName = desc.getNameAsString();
 		String idxTableName = tableName + IdxConstants.IDX_TABLE_SUFFIX;
 		
@@ -63,13 +63,10 @@ public class IndexMasterObserver extends BaseMasterObserver {
 	public void preDisableTable(ObserverContext<MasterCoprocessorEnvironment> ctx, byte[] tableName)
 			throws IOException {
 		MasterServices master = ctx.getEnvironment().getMasterServices();
-		Configuration conf = master.getConfiguration();
 
-		// consider only one column
 		String strTableName = Bytes.toString(tableName);
 		
-		boolean isUserTable = !(TableUtils.isSystemTable(tableName)
-				|| TableUtils.isIndexTable(tableName));
+		boolean isUserTable = TableUtils.isUserTable(tableName);
 		
 		if(isUserTable){
 			String idxTableName = strTableName + IdxConstants.IDX_TABLE_SUFFIX;
@@ -80,13 +77,10 @@ public class IndexMasterObserver extends BaseMasterObserver {
 	@Override
 	public void preDeleteTable(ObserverContext<MasterCoprocessorEnvironment> ctx, byte[] tableName) throws IOException {
 		MasterServices master = ctx.getEnvironment().getMasterServices();
-		Configuration conf = master.getConfiguration();
 
-		// consider only one column
 		String strTableName = Bytes.toString(tableName);
 		
-		boolean isUserTable = !(TableUtils.isSystemTable(tableName)
-				|| TableUtils.isIndexTable(tableName));
+		boolean isUserTable = TableUtils.isUserTable(tableName);
 		
 		if(isUserTable){
 			String idxTableName = strTableName + IdxConstants.IDX_TABLE_SUFFIX;
