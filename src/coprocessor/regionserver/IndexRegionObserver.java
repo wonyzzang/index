@@ -17,6 +17,8 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices;
@@ -46,8 +48,8 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 
 		// if table is not user table, it is not performed
-		// index table rowkey - region start key + "idx" + all qualifier number
-		// and value + user table rowkey -
+		// index table rowkey = column value + id + lengthall qualifier number
+		// and value + user table rowkey
 		if (isUserTable) {
 			HRegion region = ctx.getEnvironment().getRegion();
 			String startKey = Bytes.toString(region.getStartKey());
@@ -94,15 +96,23 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 
 		if (isUserTable) {
-			List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
-					.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
-			HRegion idxRegion = idxRegions.get(0);
-			Scan sc = new Scan();
-			sc.addFamily(IdxConstants.IDX_FAMILY);
-			RegionScanner scanner = idxRegion.getScanner(sc);
+			Filter filter = scan.getFilter();
+			if(filter!=null){
+				List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
+						.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
+				HRegion idxRegion = idxRegions.get(0);
+				Scan sc = new Scan();
+				sc.addFamily(IdxConstants.IDX_FAMILY);
+				if(filter instanceof RowFilter){
+					RowFilter rowFilter = (RowFilter) filter;
+					sc.setFilter(rowFilter);
+				}
+				
+				RegionScanner scanner = idxRegion.getScanner(sc);
 
-			LOG.info("PostScannerOpen END");
-			return new IndexRegionScanner(scanner);
+				LOG.info("PostScannerOpen END");
+				return new IndexRegionScanner(idxRegion, scanner, scan);
+			}
 		}
 		LOG.info("PostScannerOpen END");
 		return super.postScannerOpen(ctx, scan, s);

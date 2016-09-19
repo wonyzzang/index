@@ -1,6 +1,7 @@
 package coprocessor.master;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -17,6 +18,7 @@ import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.handler.CreateTableHandler;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import index.IdxHTableDescriptor;
 import util.IdxConstants;
 import util.TableUtils;
 
@@ -31,31 +33,36 @@ public class IndexMasterObserver extends BaseMasterObserver {
 	
 		MasterServices master = ctx.getEnvironment().getMasterServices();
 		Configuration conf = master.getConfiguration();
+		
+		if(desc instanceof IdxHTableDescriptor){
+			//IdxHTableDescriptor Idesc = (IdxHTableDescriptor)desc;
+			//ArrayList<byte[]> idxColumns = Idesc.getIndexColumns();
+			
+			// consider only one column family
+			String tableName = desc.getNameAsString();
+			String idxTableName = tableName + IdxConstants.IDX_TABLE_SUFFIX;
+			
+			// check if tables already exist
+			boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
+			boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
+			
+			if(isTableExist||isIdxTableExist){
+				LOG.error("Table already exists");
+				throw new TableExistsException("Table " + tableName + " already exist.");
+			}
+			
+			// make index table
+			HTableDescriptor indextable = new HTableDescriptor(idxTableName);
+			
+			HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
+			indextable.addFamily(indCol);
 
-		// consider only one column family
-		String tableName = desc.getNameAsString();
-		String idxTableName = tableName + IdxConstants.IDX_TABLE_SUFFIX;
-		
-		// check if tables already exist
-		boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
-		boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
-		
-		if(isTableExist||isIdxTableExist){
-			LOG.error("Table already exists");
-			throw new TableExistsException("Table " + tableName + " already exist.");
+			HRegionInfo[] hRegionInfos = new HRegionInfo[] { new HRegionInfo(Bytes.toBytes(idxTableName), null, null) };
+
+			new CreateTableHandler(master, master.getMasterFileSystem(), master.getServerManager(), indextable, conf,
+					hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
 		}
-		
-		// make index table
-		HTableDescriptor indextable = new HTableDescriptor(idxTableName);
-		
-		HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
-		indextable.addFamily(indCol);
 
-		HRegionInfo[] hRegionInfos = new HRegionInfo[] { new HRegionInfo(Bytes.toBytes(idxTableName), null, null) };
-
-		new CreateTableHandler(master, master.getMasterFileSystem(), master.getServerManager(), indextable, conf,
-				hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
-		
 		LOG.info("PreCreateTable END");
 	}
 	
