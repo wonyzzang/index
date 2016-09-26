@@ -3,6 +3,7 @@ package util;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Bytes;
 
+/* This class is for Utility of table functions */
 public class TableUtils {
 
 	/**

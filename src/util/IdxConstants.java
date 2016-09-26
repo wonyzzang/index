@@ -2,7 +2,9 @@ package util;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+/* This class is for constants */
 public class IdxConstants {
+	
 	// name suffix of index table
 	public static final String IDX_TABLE_SUFFIX = "_idx";
 	
@@ -14,4 +16,11 @@ public class IdxConstants {
 	
 	// index table's column value
 	public static final byte[] IDX_VALUE = Bytes.toBytes("0");
+	
+	// max index column name length
+	public static final int MAX_INDEX_NAME_LENGTH = 15;
+	
+	public static enum ValueType {
+		String, Int, Float, Long, Double, Short, Byte, Char
+	};
 }

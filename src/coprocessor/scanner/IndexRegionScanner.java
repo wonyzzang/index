@@ -33,27 +33,10 @@ public class IndexRegionScanner implements RegionScanner{
 		this.scan = scan;
 		Filter f = scan.getFilter();
 		
-//		if(f instanceof SingleColumnSearchFilter){
-//			this.filter = (SingleColumnSearchFilter) f;
-//			scan.setFilter(filter);
-//			try {
-//				this.scanner = this.region.getScanner(scan);
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-//			
-//		}
-		
 		if(f instanceof RowFilter){
 			LOG.info("_RowFilter_");
 			this.filter = (RowFilter) f;
 			this.scan.setFilter(filter);
-//			try {
-//				this.scanner = this.region.getScanner(this.scan);
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-			
 		}
 		
 		LOG.info("IndexRegionScanner Open");
