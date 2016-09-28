@@ -19,6 +19,7 @@ import org.apache.hadoop.hbase.master.RegionPlan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import util.IdxConstants;
+import util.TableUtils;
 
 public class IdxLoadBalancer implements LoadBalancer {
 
@@ -27,6 +28,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 	private LoadBalancer loadBalancer;
 	private MasterServices master;
 
+	// Map of tablename and region, server name map
 	private Map<String, Map<HRegionInfo, ServerName>> regionLocation = new ConcurrentHashMap<String, Map<HRegionInfo, ServerName>>();
 
 	@Override
@@ -44,11 +46,13 @@ public class IdxLoadBalancer implements LoadBalancer {
 		return null;
 	}
 
+	// immediate
 	@Override
 	public Map<HRegionInfo, ServerName> immediateAssignment(List<HRegionInfo> regionList, List<ServerName> serverList) {
 		return this.loadBalancer.immediateAssignment(regionList, serverList);
 	}
 
+	// random
 	@Override
 	public ServerName randomAssignment(List<ServerName> serverList) {
 		return this.loadBalancer.randomAssignment(serverList);
@@ -61,128 +65,170 @@ public class IdxLoadBalancer implements LoadBalancer {
 		return null;
 	}
 
+	// round robin
 	@Override
 	public Map<ServerName, List<HRegionInfo>> roundRobinAssignment(List<HRegionInfo> regionList,
 			List<ServerName> serverList) {
 		List<HRegionInfo> userRegions = new ArrayList<HRegionInfo>(1);
 		List<HRegionInfo> indexRegions = new ArrayList<HRegionInfo>(1);
-		for (HRegionInfo hri : regionList) {
-			seperateUserAndIndexRegion(hri, userRegions, indexRegions);
+
+		// separate user table and index table
+		for (HRegionInfo regionInfo : regionList) {
+			classifyRegion(regionInfo, userRegions, indexRegions);
 		}
-		Map<ServerName, List<HRegionInfo>> bulkPlan = null;
+
+		Map<ServerName, List<HRegionInfo>> plan = null;
 		if (userRegions.isEmpty() == false) {
-			bulkPlan = this.loadBalancer.roundRobinAssignment(userRegions, serverList);
-			if (bulkPlan == null) {
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("No region plan for user regions.");
-				}
+			plan = this.loadBalancer.roundRobinAssignment(userRegions, serverList);
+			if (plan == null) {
+				LOG.info("No region plan for user regions.");
 				return null;
 			}
+
+			// save assignment plan
 			synchronized (this.regionLocation) {
-				savePlan(bulkPlan);
+				savePlan(plan);
 			}
 		}
-		bulkPlan = prepareIndexRegionPlan(indexRegions, bulkPlan, serverList);
-		return bulkPlan;
+		plan = prepareIndexRegionPlan(indexRegions, plan, serverList);
+		return plan;
 	}
 
-	private void savePlan(Map<ServerName, List<HRegionInfo>> bulkPlan) {
-		for (Entry<ServerName, List<HRegionInfo>> e : bulkPlan.entrySet()) {
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("Saving user regions' plans for server " + e.getKey() + '.');
+	/**
+	 * @param plan
+	 *            allocation plan of regions
+	 * @return
+	 */
+
+	private void savePlan(Map<ServerName, List<HRegionInfo>> plan) {
+
+		// regionlocation saves plan
+		for (Entry<ServerName, List<HRegionInfo>> entry : plan.entrySet()) {
+			for (HRegionInfo region : entry.getValue()) {
+				putRegionPlan(region, entry.getKey());
 			}
-			for (HRegionInfo hri : e.getValue()) {
-				putRegionPlan(hri, e.getKey());
-			}
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("Saved user regions' plans for server " + e.getKey() + '.');
-			}
+			LOG.info("Saved user regions' plans for server " + entry.getKey() + '.');
 		}
 	}
 
-	private void seperateUserAndIndexRegion(HRegionInfo hri, List<HRegionInfo> userRegions,
-			List<HRegionInfo> indexRegions) {
-		if (hri.getTableNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
-			indexRegions.add(hri);
-			return;
+	/**
+	 * @param regionInfo
+	 *            region info of region that we want to know whether it is user
+	 *            table or index table
+	 * @param userRegions
+	 *            user region list
+	 * @param indexRegions
+	 *            index region list
+	 * @return
+	 */
+
+	private void classifyRegion(HRegionInfo regionInfo, List<HRegionInfo> userRegions, List<HRegionInfo> indexRegions) {
+		// if table name has index table suffix, table is index table
+		// otherwise, table is user table
+		if (regionInfo.getTableNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
+			indexRegions.add(regionInfo);
+		} else {
+			userRegions.add(regionInfo);
 		}
-		userRegions.add(hri);
 	}
 
-	public void putRegionPlan(HRegionInfo regionInfo, ServerName sn) {
+	/**
+	 * @param regionInfo
+	 *            regionInfo of table
+	 * @param serverName
+	 *            server name which saves region
+	 * @return
+	 */
+
+	public void putRegionPlan(HRegionInfo regionInfo, ServerName serverName) {
 		String tableName = regionInfo.getTableNameAsString();
 		synchronized (this.regionLocation) {
+			// get region map of table
 			Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
-			if (null == regionMap) {
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("No regions of table " + tableName + " in the region plan.");
-				}
+
+			// if region map is null, table's regions are not allocated before
+			// so, put new map element for table
+			if (regionMap == null) {
+				LOG.info("No regions of table in region plan");
 				regionMap = new ConcurrentHashMap<HRegionInfo, ServerName>(1);
 				this.regionLocation.put(tableName, regionMap);
 			}
-			regionMap.put(regionInfo, sn);
+			regionMap.put(regionInfo, serverName);
 		}
 	}
+	
+	/**
+	 * @param indexRegions
+	 *            regionInfo of index table's region
+	 * @param plan
+	 * 				assignment plan
+	 * @param serverList
+	 * 				region server list
+	 * @return plan including index table region allocation plan
+	 */
 
 	private Map<ServerName, List<HRegionInfo>> prepareIndexRegionPlan(List<HRegionInfo> indexRegions,
-			Map<ServerName, List<HRegionInfo>> bulkPlan, List<ServerName> servers) {
-		if (null != indexRegions && false == indexRegions.isEmpty()) {
-			if (null == bulkPlan) {
-				bulkPlan = new ConcurrentHashMap<ServerName, List<HRegionInfo>>(1);
+			Map<ServerName, List<HRegionInfo>> plan, List<ServerName> serverList) {
+		
+		// if index regions don't exist, return plan
+		if (indexRegions != null && indexRegions.isEmpty() == false) {
+			if (plan == null) {
+				plan = new ConcurrentHashMap<ServerName, List<HRegionInfo>>(1);
 			}
-			for (HRegionInfo hri : indexRegions) {
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("Preparing region plan for index region " + hri.getRegionNameAsString() + '.');
-				}
-				ServerName destServer = getDestServerForIdxRegion(hri);
+			for (HRegionInfo regionInfo : indexRegions) {
+				
+				// get server name that has user region whose start key is same with index region
+				ServerName destServer = getServerNameForIdxRegion(regionInfo);
 				List<HRegionInfo> destServerRegions = null;
-				if (null == destServer) {
-					destServer = this.randomAssignment(servers);
+				
+				// if can't find server, random assign region
+				if (destServer==null) {
+					destServer = this.randomAssignment(serverList);
 				}
-				if (null != destServer) {
-					destServerRegions = bulkPlan.get(destServer);
-					if (null == destServerRegions) {
+				
+				// otherwise, assign region to server
+				else {
+					destServerRegions = plan.get(destServer);
+					if (destServerRegions==null) {
 						destServerRegions = new ArrayList<HRegionInfo>(1);
-						bulkPlan.put(destServer, destServerRegions);
+						plan.put(destServer, destServerRegions);
 					}
-					if (LOG.isDebugEnabled()) {
-						LOG.debug("Server " + destServer + " selected for region " + hri.getRegionNameAsString() + '.');
-					}
-					destServerRegions.add(hri);
+					destServerRegions.add(regionInfo);
 				}
 			}
 		}
-		return bulkPlan;
+		return plan;
 	}
 
-	private ServerName getDestServerForIdxRegion(HRegionInfo hri) {
-		// Every time we calculate the table name because in case of master
-		// restart the index regions
-		// may be coming for different index tables.
-		String indexTableName = hri.getTableNameAsString();
-		String actualTableName = extractActualTableName(indexTableName);
+	/**
+	 * @param regionInfo
+	 *            regionInfo of index table's region
+	 * @return name of server which contains user table region that has same
+	 *         start key
+	 */
+
+	private ServerName getServerNameForIdxRegion(HRegionInfo regionInfo) {
+		String indexTableName = regionInfo.getTableNameAsString();
+		String userTableName = TableUtils.extractTableName(indexTableName);
+
 		synchronized (this.regionLocation) {
-			Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
-			if (null == regionMap) {
-				// Can this case come
+			// get region and server of user table
+			Map<HRegionInfo, ServerName> regionMap = regionLocation.get(userTableName);
+			if (regionMap == null) {
 				return null;
 			}
-			for (Map.Entry<HRegionInfo, ServerName> e : regionMap.entrySet()) {
-				HRegionInfo uHri = e.getKey();
-				if (0 == Bytes.compareTo(uHri.getStartKey(), hri.getStartKey())) {
-					// put index region location if corresponding user region
-					// found in regionLocation map.
-					putRegionPlan(hri, e.getValue());
-					return e.getValue();
+
+			// check start key of all regions
+			// return server name if find region start key matched
+			for (Map.Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
+				HRegionInfo entryRegionInfo = entry.getKey();
+				if (Bytes.compareTo(entryRegionInfo.getStartKey(), regionInfo.getStartKey()) == 0) {
+					putRegionPlan(regionInfo, entry.getValue());
+					return entry.getValue();
 				}
 			}
 		}
 		return null;
-	}
-
-	private String extractActualTableName(String indexTableName) {
-		int endIndex = indexTableName.length() - IdxConstants.IDX_TABLE_SUFFIX.length();
-		return indexTableName.substring(0, endIndex);
 	}
 
 	@Override

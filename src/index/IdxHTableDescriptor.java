@@ -10,7 +10,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import util.IdxConstants;
 import util.IdxConstants.ValueType;
 
-/* This class is for htabledescriptor of index table */
+/* This class is for htable descriptor of index table */
 public class IdxHTableDescriptor extends HTableDescriptor {
 	private static final Log LOG = LogFactory.getLog(IdxHTableDescriptor.class);
 

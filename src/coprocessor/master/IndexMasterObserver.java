@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -25,6 +26,11 @@ import util.TableUtils;
 public class IndexMasterObserver extends BaseMasterObserver {
 	
 	private static final Log LOG = LogFactory.getLog(IndexMasterObserver.class.getName());
+	
+@Override
+	public void start(CoprocessorEnvironment ctx) throws IOException {
+		super.start(ctx);
+	}
 
 	// Calling this function before creating user table
 	@Override
@@ -35,7 +41,8 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		MasterServices master = ctx.getEnvironment().getMasterServices();
 		Configuration conf = master.getConfiguration();
 		
-		if(desc instanceof IdxHTableDescriptor){
+		//if(desc instanceof IdxHTableDescriptor){
+		if(true){
 			//IdxHTableDescriptor Idesc = (IdxHTableDescriptor)desc;
 			//ArrayList<byte[]> idxColumns = Idesc.getIndexColumns();
 			

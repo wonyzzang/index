@@ -45,4 +45,14 @@ public class TableUtils {
 
 		return isUserTable;
 	}
+
+	/**
+	 * @param indexTableName
+	 * @return user table name of index table
+	 */
+
+	public static String extractTableName(String indexTableName) {
+		int tableNameLength = indexTableName.length() - IdxConstants.IDX_TABLE_SUFFIX.length();
+		return indexTableName.substring(0, tableNameLength);
+	}
 }
