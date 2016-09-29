@@ -7,7 +7,7 @@ import java.io.IOException;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableComparable;
 
-import util.IdxConstants.ValueType;
+import util.ValueType;
 
 /* This class is for index column qualifier */
 public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier>{
@@ -15,9 +15,17 @@ public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier
 	private String qualifierName;  // qualifier name
 	private ValueType valueType;   // value's type
 	
+	public IdxColumnQualifier(){
+		this.valueType = ValueType.String;
+	}
+	
 	public IdxColumnQualifier(String qualifier, ValueType vt){
 		this.qualifierName = qualifier;
 		this.valueType = vt;
+	}
+	
+	public void setQualifierName(String name){
+		this.qualifierName = name;
 	}
 	
 	/**
@@ -38,6 +46,11 @@ public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier
 		return this.qualifierName.length();
 	}
 	
+	public void setValueType(ValueType vt){
+		this.valueType = vt;
+	}
+
+	
 	/**
 	 * @param 
 	 * @return index column qualifier's value type
@@ -50,11 +63,13 @@ public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier
 	@Override
 	public void readFields(DataInput in) throws IOException {
 		this.qualifierName = in.readLine();
+		this.valueType = ValueType.convert2Enum(in.readInt());
 	}
 
 	@Override
 	public void write(DataOutput out) throws IOException {
 		Bytes.writeByteArray(out, Bytes.toBytes(this.qualifierName));
+		out.writeInt(this.valueType.convert2Int());
 	}
 
 	@Override

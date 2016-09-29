@@ -1,5 +1,8 @@
 package index;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.commons.logging.Log;
@@ -8,14 +11,14 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import util.IdxConstants;
-import util.IdxConstants.ValueType;
+import util.ValueType;
 
 /* This class is for htable descriptor of index table */
 public class IdxHTableDescriptor extends HTableDescriptor {
 	private static final Log LOG = LogFactory.getLog(IdxHTableDescriptor.class);
 
-	 // list of index column 
-	private ArrayList<IdxColumnQualifier> idxColumns = new ArrayList<IdxColumnQualifier>(); 
+	// list of index column
+	private ArrayList<IdxColumnQualifier> idxColumns = new ArrayList<IdxColumnQualifier>();
 
 	public IdxHTableDescriptor() {
 	}
@@ -27,9 +30,10 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 	public IdxHTableDescriptor(byte[] tableName) {
 		super(tableName);
 	}
-	
+
 	/**
-	 * @param qualifier's name
+	 * @param qualifier
+	 *            index column's name
 	 * @return
 	 */
 
@@ -39,9 +43,9 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 			LOG.info("column name is null");
 			throw new IllegalArgumentException();
 		}
-		
+
 		// if length of index column's name is more than limit, error
-		if(qualifier.length()>IdxConstants.MAX_INDEX_NAME_LENGTH){
+		if (qualifier.length() > IdxConstants.MAX_INDEX_NAME_LENGTH) {
 			LOG.info("column name is too long");
 			throw new IllegalArgumentException();
 		}
@@ -53,12 +57,12 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 				throw new IllegalArgumentException();
 			}
 		}
-		
+
 		// add index column
-		IdxColumnQualifier idxColumn = new IdxColumnQualifier(qualifier, ValueType.String); 
+		IdxColumnQualifier idxColumn = new IdxColumnQualifier(qualifier, ValueType.String);
 		this.idxColumns.add(idxColumn);
 	}
-	
+
 	/**
 	 * @param
 	 * @return list of index column qualifier
@@ -67,14 +71,36 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 	public ArrayList<IdxColumnQualifier> getIndexColumns() {
 		return (ArrayList<IdxColumnQualifier>) (this.idxColumns.clone());
 	}
-	
+
 	/**
 	 * @param
 	 * @return number of index column
 	 */
-	
-	public int getIndexColumnCount(){
+
+	public int getIndexColumnCount() {
 		return this.idxColumns.size();
 	}
 
+	@Override
+	public void write(DataOutput out) throws IOException {
+		super.write(out);
+		out.writeInt(this.idxColumns.size());
+		for (IdxColumnQualifier qual : idxColumns) {
+			qual.write(out);
+		}
+	}
+
+	@Override
+	public void readFields(DataInput in) throws IOException {
+
+		super.readFields(in);
+		int indexSize = in.readInt();
+		idxColumns.clear();
+		for (int i = 0; i < indexSize; i++) {
+			IdxColumnQualifier qual = new IdxColumnQualifier();
+			qual.readFields(in);
+			this.idxColumns.add(qual);
+		}
+
+	}
 }

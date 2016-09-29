@@ -1,6 +1,10 @@
 package util;
 
+import java.util.Collection;
+
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /* This class is for Utility of table functions */
@@ -54,5 +58,35 @@ public class TableUtils {
 	public static String extractTableName(String indexTableName) {
 		int tableNameLength = indexTableName.length() - IdxConstants.IDX_TABLE_SUFFIX.length();
 		return indexTableName.substring(0, tableNameLength);
+	}
+
+	/**
+	 * @param TableName
+	 * @return index table name of user table
+	 */
+
+	public static String getIndexTableName(String tableName) {
+		return tableName + IdxConstants.IDX_TABLE_SUFFIX;
+	}
+
+	/**
+	 * @param tableName
+	 *            user table name
+	 * @param startKey
+	 *            region's start key
+	 * @param regionServer
+	 *            region server having region
+	 * @return index table name of user table
+	 */
+
+	public static HRegion getIndexTableRegion(String tableName, byte[] startKey, HRegionServer regionServer) {
+		String indexTableName = getIndexTableName(tableName);
+		Collection<HRegion> idxTableRegions = regionServer.getOnlineRegions(Bytes.toBytes(indexTableName));
+		for (HRegion idxTableRegion : idxTableRegions) {
+			if (Bytes.equals(idxTableRegion.getStartKey(), startKey)) {
+				return idxTableRegion;
+			}
+		}
+		return null;
 	}
 }
