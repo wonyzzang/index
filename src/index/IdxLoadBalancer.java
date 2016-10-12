@@ -1,6 +1,5 @@
 package index;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +42,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 		this.loadBalancer.setConf(conf);
 	}
 
+	// balance cluster state
 	@Override
 	public List<RegionPlan> balanceCluster(Map<ServerName, List<HRegionInfo>> clusterState) {
 		synchronized (this.regionLocation) {
@@ -129,7 +129,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 				String actualTableName = TableUtils.extractTableName(tableName);
 				Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
 				// no previous region plan for user table.
-				if (regionMap==null) {
+				if (regionMap == null) {
 					return null;
 				}
 				for (Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
@@ -166,19 +166,38 @@ public class IdxLoadBalancer implements LoadBalancer {
 		}
 	}
 
+	/**
+	 * @param regionMap
+	 *            map of servers and regions
+	 * @param serverName
+	 *            name of server
+	 * @param regionInfo
+	 *            region
+	 */
+
 	private void updateServer(Map<HRegionInfo, ServerName> regionMap, ServerName serverName, HRegionInfo regionInfo) {
 		ServerName existingServer = regionMap.get(regionInfo);
 		if (!serverName.equals(existingServer)) {
 			regionMap.put(regionInfo, serverName);
 		}
 	}
+	
+	/**
+	 * @param indexClusterState
+	 *            map of servers and regions
+	 * @param regionPlanList
+	 *            name of server
+	 * @param regionPlanListCopy
+	 *            region
+	 * @return list of region plan
+	 */
 
 	// Creates the index region plan based on the corresponding user region plan
 	private List<RegionPlan> prepareIndexPlan(Map<ServerName, List<HRegionInfo>> indexClusterState,
 			List<RegionPlan> regionPlanList, List<RegionPlan> regionPlanListCopy) {
 
 		OUTER_LOOP: for (RegionPlan regionPlan : regionPlanListCopy) {
-			HRegionInfo hri = regionPlan.getRegionInfo();
+			HRegionInfo regionInfo = regionPlan.getRegionInfo();
 
 			MIDDLE_LOOP: for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : indexClusterState.entrySet()) {
 				List<HRegionInfo> indexRegions = serverVsRegionList.getValue();
@@ -195,10 +214,10 @@ public class IdxLoadBalancer implements LoadBalancer {
 				for (HRegionInfo indexRegionInfo : indexRegions) {
 					String indexTableName = indexRegionInfo.getTableNameAsString();
 					actualTableName = TableUtils.extractTableName(indexTableName);
-					if (hri.getTableNameAsString().equals(actualTableName) == false) {
+					if (regionInfo.getTableNameAsString().equals(actualTableName) == false) {
 						continue;
 					}
-					if (Bytes.compareTo(hri.getStartKey(), indexRegionInfo.getStartKey()) != 0) {
+					if (Bytes.compareTo(regionInfo.getStartKey(), indexRegionInfo.getStartKey()) != 0) {
 						continue;
 					}
 					RegionPlan rp = new RegionPlan(indexRegionInfo, server, regionPlan.getDestination());
@@ -215,6 +234,12 @@ public class IdxLoadBalancer implements LoadBalancer {
 
 		return regionPlanList;
 	}
+	
+	/**
+	 * @param regionPlanList
+	 *            map of servers and regions
+	 * @return list of region plan
+	 */
 
 	private void saveRegionPlanList(List<RegionPlan> regionPlanList) {
 		for (RegionPlan regionPlan : regionPlanList) {

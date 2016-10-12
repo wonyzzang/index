@@ -16,41 +16,58 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
 
 import index.SingleColumnSearchFilter;
 
-public class IndexRegionScanner implements RegionScanner{
+public class IndexRegionScanner implements RegionScanner {
 	private static final Log LOG = LogFactory.getLog(IndexRegionScanner.class);
-	
-	private HRegion region = null;
+
 	private RegionScanner scanner = null;
 	private Scan scan = null;
-	
-	//private SingleColumnSearchFilter filter = null;
-	private RowFilter filter = null;
+
+	private KeyValue currentKV = null;
+	private int scannerIndex = -1;
+	private boolean hasMore = true;
 	private boolean isClosed = false;
-	
-	public IndexRegionScanner(HRegion region, RegionScanner scanner, Scan scan){
-		this.region = region;
+
+	private RowFilter filter = null;
+
+	// private SingleColumnSearchFilter filter = null;
+
+	public IndexRegionScanner(RegionScanner scanner, Scan scan) {
 		this.scanner = scanner;
 		this.scan = scan;
-		Filter f = scan.getFilter();
-		
-		if(f instanceof RowFilter){
-			LOG.info("_RowFilter_");
-			this.filter = (RowFilter) f;
-			this.scan.setFilter(filter);
-		}
-		
+
 		LOG.info("IndexRegionScanner Open");
 	}
-	
+
 	@Override
 	public void close() throws IOException {
 		scanner.close();
 		isClosed = true;
 	}
 
+	// check if more rows exist after this row
 	@Override
 	public boolean next(List<KeyValue> result) throws IOException {
-		return scanner.next(result);
+		
+		if (!this.hasMore) {
+			return false;
+		}
+		
+		boolean tmpHasMore = this.scanner.next(result);
+		if (result != null && result.size() > 0) {
+			KeyValue kv = result.get(0);
+			this.currentKV = kv;
+		}
+		
+		while(result.size() < 1 && tmpHasMore){
+			tmpHasMore = this.scanner.next(result);
+			if (result != null && result.size() > 0) {
+				KeyValue kv = result.get(0);
+				this.currentKV = kv;
+			}
+		}
+			
+		this.hasMore = tmpHasMore;
+		return tmpHasMore;
 	}
 
 	@Override
@@ -70,7 +87,6 @@ public class IndexRegionScanner implements RegionScanner{
 
 	@Override
 	public long getMvccReadPoint() {
-		// TODO Auto-generated method stub
 		return scanner.getMvccReadPoint();
 	}
 
@@ -96,15 +112,22 @@ public class IndexRegionScanner implements RegionScanner{
 
 	@Override
 	public boolean reseek(byte[] row) throws IOException {
+		if (!hasMore) {
+			return false;
+		}
 		return scanner.reseek(row);
 	}
-	
-	public Scan getScan(){
+
+	public Scan getScan() {
 		return this.scan;
 	}
-	
-	public RegionScanner getRegionScanner(){
+
+	public RegionScanner getRegionScanner() {
 		return this.scanner;
+	}
+	
+	public boolean isClosed(){
+		return this.isClosed;
 	}
 
 }

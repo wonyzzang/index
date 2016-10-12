@@ -4,11 +4,11 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import util.IdxConstants;
 import util.ValueType;
@@ -18,7 +18,7 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 	private static final Log LOG = LogFactory.getLog(IdxHTableDescriptor.class);
 
 	// list of index column
-	private ArrayList<IdxColumnQualifier> idxColumns = new ArrayList<IdxColumnQualifier>();
+	private List<IdxColumnQualifier> idxColumns = new ArrayList<IdxColumnQualifier>();
 
 	public IdxHTableDescriptor() {
 	}
@@ -68,8 +68,8 @@ public class IdxHTableDescriptor extends HTableDescriptor {
 	 * @return list of index column qualifier
 	 */
 
-	public ArrayList<IdxColumnQualifier> getIndexColumns() {
-		return (ArrayList<IdxColumnQualifier>) (this.idxColumns.clone());
+	public List<IdxColumnQualifier> getIndexColumns() {
+		return new ArrayList<IdxColumnQualifier>(this.idxColumns);
 	}
 
 	/**

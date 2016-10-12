@@ -26,12 +26,15 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import coprocessor.scanner.IndexRegionScanner;
+import index.IdxManager;
 import util.IdxConstants;
 import util.TableUtils;
 
 public class IndexRegionObserver extends BaseRegionObserver {
 
 	private static final Log LOG = LogFactory.getLog(IndexRegionObserver.class.getName());
+	
+	private IdxManager indexManager = IdxManager.getInstance();
 
 	// before put implements, call this function
 	@Override
@@ -123,7 +126,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 				RegionScanner scanner = idxRegion.getScanner(sc);
 
 				LOG.info("PostScannerOpen END");
-				return new IndexRegionScanner(idxRegion, scanner, scan);
+				return new IndexRegionScanner(scanner, scan);
 			}
 		}
 		LOG.info("PostScannerOpen END");
