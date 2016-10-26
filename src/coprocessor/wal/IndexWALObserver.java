@@ -7,6 +7,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.coprocessor.BaseWALObserver;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.WALCoprocessorEnvironment;
 import org.apache.hadoop.hbase.coprocessor.WALObserver;
@@ -14,12 +15,13 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.wal.HLogKey;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.wal.WALKey;
 
 import index.IdxColumnQualifier;
 import index.IdxManager;
 import util.TableUtils;
 
-public class IndexWALObserver implements WALObserver {
+public class IndexWALObserver extends BaseWALObserver {
 
 	private static final Log LOG = LogFactory.getLog(IndexWALObserver.class);
 
@@ -41,7 +43,7 @@ public class IndexWALObserver implements WALObserver {
 	@Override
 	public boolean preWALWrite(ObserverContext<WALCoprocessorEnvironment> ctx, HRegionInfo regionInfo, HLogKey logKey,
 			WALEdit walEdit) throws IOException {
-		String strTableName = regionInfo.getTableNameAsString();
+		String strTableName = regionInfo.getTable().getNameAsString();
 		if (!TableUtils.isUserTable(Bytes.toBytes(strTableName))) {
 			return true;
 		}
@@ -72,6 +74,20 @@ public class IndexWALObserver implements WALObserver {
 			// LOG.trace("Exiting preWALWrite for the table " + tableNameStr);
 		}
 		return true;
+	}
+
+	@Override
+	public void postWALWrite(ObserverContext<? extends WALCoprocessorEnvironment> ctx, HRegionInfo hRegionInfo, WALKey key,
+			WALEdit edit) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean preWALWrite(ObserverContext<? extends WALCoprocessorEnvironment> ctx, HRegionInfo hRegionInfo, WALKey key,
+			WALEdit edit) throws IOException {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

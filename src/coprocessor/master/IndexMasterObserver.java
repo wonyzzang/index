@@ -1,27 +1,20 @@
 package coprocessor.master;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.TableExistsException;
-import org.apache.hadoop.hbase.catalog.MetaReader;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.coprocessor.BaseMasterObserver;
 import org.apache.hadoop.hbase.coprocessor.MasterCoprocessorEnvironment;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.handler.CreateTableHandler;
-import org.apache.hadoop.hbase.util.Bytes;
 
-import index.IdxColumnQualifier;
-import index.IdxHTableDescriptor;
 import index.IdxManager;
 import util.IdxConstants;
 import util.TableUtils;
@@ -29,7 +22,7 @@ import util.TableUtils;
 public class IndexMasterObserver extends BaseMasterObserver {
 
 	private static final Log LOG = LogFactory.getLog(IndexMasterObserver.class.getName());
-	
+
 	private IdxManager indexManager = IdxManager.getInstance();
 
 	// Calling this function before creating user table
@@ -41,66 +34,72 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		MasterServices master = ctx.getEnvironment().getMasterServices();
 		Configuration conf = master.getConfiguration();
 
-		if(desc instanceof IdxHTableDescriptor){
-			IdxHTableDescriptor Idesc = (IdxHTableDescriptor)desc;
-			List<IdxColumnQualifier> idxColumns = Idesc.getIndexColumns();
-			
-			indexManager.addIndexForTable(desc.getNameAsString(), idxColumns);
+		//IdxHTableDescriptor Idesc = (IdxHTableDescriptor) desc;
+		//List<IdxColumnQualifier> idxColumns = Idesc.getIndexColumns();
 
-			// consider only one column family
-			String tableName = desc.getNameAsString();
-			String idxTableName = tableName + IdxConstants.IDX_TABLE_SUFFIX;
+		//indexManager.addIndexForTable(desc.getNameAsString(), idxColumns);
 
-			// check if tables already exist
-			boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
-			boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
-			if (isTableExist || isIdxTableExist) {
-				LOG.error("Table already exists");
-				throw new TableExistsException("Table " + tableName + " already exist.");
-			}
+		// consider only one column family
+		String tableName = desc.getNameAsString();
+		String idxTableName = TableUtils.getIndexTableName(tableName);
+		
+		TableName idxTName = TableName.valueOf(idxTableName);
 
-			// make index table
-			HTableDescriptor indextable = new HTableDescriptor(idxTableName);
-			HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
-			indextable.addFamily(indCol);
-			HRegionInfo[] hRegionInfos = new HRegionInfo[] { new HRegionInfo(Bytes.toBytes(idxTableName), null, null) };
-			new CreateTableHandler(master, master.getMasterFileSystem(), master.getServerManager(), indextable, conf,
-					hRegionInfos, master.getCatalogTracker(), master.getAssignmentManager()).process();
-		}
+		// check if tables already exist
+
+//		boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
+//		boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
+//		if (isTableExist || isIdxTableExist) {
+//			LOG.error("Table already exists");
+//			throw new TableExistsException("Table " + tableName + " already exist.");
+//		}
+
+		// make index table
+		HTableDescriptor indextable = new HTableDescriptor(idxTName);
+		HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
+		indextable.addFamily(indCol);
+		HRegionInfo[] hRegionInfos = new HRegionInfo[]{new HRegionInfo(idxTName, null, null)};
+		
+		new CreateTableHandler(master, master.getMasterFileSystem(), indextable, conf, hRegionInfos, master).process();
 
 		LOG.info("PreCreateTable END");
 	}
 
 	// Calling this function before making user table disable
 	@Override
-	public void preDisableTable(ObserverContext<MasterCoprocessorEnvironment> ctx, byte[] tableName)
-			throws IOException {
+	public void preDisableTable(ObserverContext<MasterCoprocessorEnvironment> ctx, TableName tName) throws IOException {
+		// TODO Auto-generated method stub
 
 		// get table name
 		MasterServices master = ctx.getEnvironment().getMasterServices();
-		String strTableName = Bytes.toString(tableName);
+		String strTableName = tName.getNameAsString();
+		byte[] tableName = tName.getName();
 
 		// if table made disable is user table, index table is also disable
 		boolean isUserTable = TableUtils.isUserTable(tableName);
 		if (isUserTable) {
-			String idxTableName = strTableName + IdxConstants.IDX_TABLE_SUFFIX;
-			master.disableTable(Bytes.toBytes(idxTableName));
+			String idxTableName = TableUtils.getIndexTableName(strTableName);
+			TableName idxTName = TableName.valueOf(idxTableName);
+			master.disableTable(idxTName, PRIORITY_USER, PRIORITY_USER);
 		}
 	}
 
 	// Calling this function before making user table delete
 	@Override
-	public void preDeleteTable(ObserverContext<MasterCoprocessorEnvironment> ctx, byte[] tableName) throws IOException {
-
+	public void preDeleteTable(ObserverContext<MasterCoprocessorEnvironment> ctx, TableName tName) throws IOException {
+		// TODO Auto-generated method stub
 		// get table name
 		MasterServices master = ctx.getEnvironment().getMasterServices();
-		String strTableName = Bytes.toString(tableName);
+		String strTableName = tName.getNameAsString();
+		byte[] tableName = tName.getName();
 
 		// if table made delete is user table, index table is also deleted
 		boolean isUserTable = TableUtils.isUserTable(tableName);
 		if (isUserTable) {
-			String idxTableName = strTableName + IdxConstants.IDX_TABLE_SUFFIX;
-			master.deleteTable(Bytes.toBytes(idxTableName));
+			String idxTableName = TableUtils.getIndexTableName(strTableName);
+			TableName idxTName = TableName.valueOf(idxTableName);
+			master.deleteTable(idxTName, PRIORITY_USER, PRIORITY_USER);
 		}
 	}
+
 }

@@ -3,6 +3,8 @@ package util;
 import java.util.Collection;
 
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -15,11 +17,12 @@ public class TableUtils {
 	 * @return whether this table is meta table or root table
 	 */
 
-	public static boolean isCatalogTable(byte[] tableName) {
-		if (Bytes.equals(tableName, HConstants.META_TABLE_NAME)
-				|| Bytes.equals(tableName, HConstants.ROOT_TABLE_NAME)) {
+	public static boolean isSystemTable(byte[] tableName) {
+		TableName tName = TableName.valueOf(tableName);
+
+		if(tName.isSystemTable()){
 			return true;
-		} else {
+		}else{
 			return false;
 		}
 	}
@@ -45,7 +48,7 @@ public class TableUtils {
 	 */
 
 	public static boolean isUserTable(byte[] tableName) {
-		boolean isUserTable = !(isCatalogTable(tableName) || isIndexTable(tableName));
+		boolean isUserTable = !(isSystemTable(tableName) || isIndexTable(tableName));
 
 		return isUserTable;
 	}
@@ -78,15 +81,15 @@ public class TableUtils {
 	 *            region server having region
 	 * @return index table name of user table
 	 */
-
-	public static HRegion getIndexTableRegion(String tableName, byte[] startKey, HRegionServer regionServer) {
-		String indexTableName = getIndexTableName(tableName);
-		Collection<HRegion> idxTableRegions = regionServer.getOnlineRegions(Bytes.toBytes(indexTableName));
-		for (HRegion idxTableRegion : idxTableRegions) {
-			if (Bytes.equals(idxTableRegion.getStartKey(), startKey)) {
-				return idxTableRegion;
-			}
-		}
-		return null;
-	}
+//
+//	public static HRegion getIndexTableRegion(String tableName, byte[] startKey, HRegionServer regionServer) {
+//		String indexTableName = getIndexTableName(tableName);
+//		Collection<HRegion> idxTableRegions = regionServer.getOnlineRegions(Bytes.toBytes(indexTableName));
+//		for (HRegion idxTableRegion : idxTableRegions) {
+//			if (Bytes.equals(idxTableRegion.getStartKey(), startKey)) {
+//				return idxTableRegion;
+//			}
+//		}
+//		return null;
+//	}
 }

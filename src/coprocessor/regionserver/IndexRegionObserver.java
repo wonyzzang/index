@@ -7,9 +7,13 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Durability;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Put;
@@ -20,6 +24,7 @@ import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.Region;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
@@ -33,18 +38,23 @@ import util.TableUtils;
 public class IndexRegionObserver extends BaseRegionObserver {
 
 	private static final Log LOG = LogFactory.getLog(IndexRegionObserver.class.getName());
-	
+
 	private IdxManager indexManager = IdxManager.getInstance();
 
-	// before put implements, call this function
 	@Override
-	public void prePut(ObserverContext<RegionCoprocessorEnvironment> ctx, Put put, WALEdit edit, boolean writeToWAL)
+	public void prePut(ObserverContext<RegionCoprocessorEnvironment> ctx, Put put, WALEdit edit, Durability durability)
 			throws IOException {
+		// TODO Auto-generated method stub
 		LOG.info("PrePut START");
 
 		// get user table's information
-		String tableName = ctx.getEnvironment().getRegion().getRegionInfo().getTableNameAsString();
-		HTableInterface inter = ctx.getEnvironment().getTable(Bytes.toBytes(tableName));
+
+		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+		String tableName = tName.getNameAsString();
+		String idxTableName = TableUtils.getIndexTableName(tableName);
+		TableName idxTName = TableName.valueOf(idxTableName);
+
+		HTableInterface inter = ctx.getEnvironment().getTable(tName);
 		HTableDescriptor tableDesc = inter.getTableDescriptor();
 		HColumnDescriptor[] colDescs = tableDesc.getColumnFamilies();
 
@@ -54,41 +64,47 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 		if (isUserTable) {
 			// get start key
-			HRegion region = ctx.getEnvironment().getRegion();
-			String startKey = Bytes.toString(region.getStartKey());
+			HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
+			Region region = ctx.getEnvironment().getRegion();
+
+			String startKey = Bytes.toString(hRegionInfo.getStartKey());
 			String rowKey = startKey + "idx";
 
 			// get information of put
-			Map<byte[], List<KeyValue>> map = put.getFamilyMap();
-			List<KeyValue> list = map.get(colDescs[0].getName());
+			// Map<byte[], List<KeyValue>> map = put.getFamilyMap();
+			Map<byte[], List<Cell>> map = put.getFamilyCellMap();
+
+			List<Cell> list = map.get(colDescs[0].getName());
 
 			// all of qualifiers's names and values are added
-			for (KeyValue kv : list) {
-				String qual = Bytes.toString(kv.getQualifier());
+			for (Cell c : list) {
+				String qual = Bytes.toString(c.getQualifier());
 				qual = qual.substring(1);
-				qual += Bytes.toString(kv.getValue());
+				qual += Bytes.toString(c.getValue());
 				rowKey += qual;
 			}
+
 			rowKey += Bytes.toString(put.getRow());
 
 			// new put for inserting into index table
 			Put idxPut = new Put(Bytes.toBytes(rowKey));
 			idxPut.add(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, IdxConstants.IDX_VALUE);
-			
+
 			// index table and put
-			List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
-					.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
-			HRegion idxRegion = idxRegions.get(0);
+			List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
+			Region idxRegion = idxRegions.get(0);
 			idxRegion.put(idxPut);
 		}
 
 		LOG.info("PrePut END");
 	}
+	// before put implements, call this function
 
 	@Override
-	public void preGet(ObserverContext<RegionCoprocessorEnvironment> ctx, Get get, List<KeyValue> results)
+	public void preGetOp(ObserverContext<RegionCoprocessorEnvironment> ctx, Get get, List<Cell> results)
 			throws IOException {
-
+		// TODO Auto-generated method stub
+		super.preGetOp(ctx, get, results);
 	}
 
 	// after regionscanner is open, call this function
@@ -98,30 +114,35 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		LOG.info("PostScannerOpen START");
 
 		// get table
-		String tableName = ctx.getEnvironment().getRegion().getRegionInfo().getTableNameAsString();
-		HTableInterface inter = ctx.getEnvironment().getTable(Bytes.toBytes(tableName));
+		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+		String tableName = tName.getNameAsString();
+		String idxTableName = TableUtils.getIndexTableName(tableName);
+		TableName idxTName = TableName.valueOf(idxTableName);
+		
+		HTableInterface inter = ctx.getEnvironment().getTable(tName);
+		HTableDescriptor tableDesc = inter.getTableDescriptor();
 
 		// if table is not user table, it is not performed
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 		if (isUserTable) {
 			// check that filter exists
 			Filter filter = scan.getFilter();
-			
+
 			// if scan has filter, index filter implements
-			if(filter!=null){
+			if (filter != null) {
 				// get region of index table
-				List<HRegion> idxRegions = ctx.getEnvironment().getRegionServerServices()
-						.getOnlineRegions(Bytes.toBytes(tableName + IdxConstants.IDX_TABLE_SUFFIX));
-				HRegion idxRegion = idxRegions.get(0);
-				
+				List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices()
+						.getOnlineRegions(idxTName);
+				Region idxRegion = idxRegions.get(0);
+
 				// new scan and new filter
 				Scan sc = new Scan();
 				sc.addFamily(IdxConstants.IDX_FAMILY);
-				if(filter instanceof RowFilter){
+				if (filter instanceof RowFilter) {
 					RowFilter rowFilter = (RowFilter) filter;
 					sc.setFilter(rowFilter);
 				}
-				
+
 				// get region scanner of index table
 				RegionScanner scanner = idxRegion.getScanner(sc);
 

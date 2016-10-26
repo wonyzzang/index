@@ -1,11 +1,8 @@
 package index;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
-import java.util.List;
 
-import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -28,19 +25,6 @@ public class SingleColumnSearchFilter extends FilterBase {
 //		return super.filterRowKey(buffer, offset, length);
 //	}
 	
-	@Override
-	public ReturnCode filterKeyValue(KeyValue kv) {
-		// TODO Auto-generated method stub
-		if(Bytes.compareTo(value, kv.getValue())==0){
-			filterRow = false;
-		}
-		return ReturnCode.INCLUDE;
-	}
-	
-	@Override
-	public void filterRow(List<KeyValue> ignored) {
-		// TODO Auto-generated method stub
-	}
 	
 	@Override
 	public boolean filterRow() {
@@ -59,14 +43,14 @@ public class SingleColumnSearchFilter extends FilterBase {
 		this.filterRow = true;
 	}
 	
-	@Override
-	public void readFields(DataInput in) throws IOException {
-		this.value = Bytes.readByteArray(in);
-	}
 
 	@Override
-	public void write(DataOutput out) throws IOException {
-		Bytes.writeByteArray(out, this.value);
+	public ReturnCode filterKeyValue(Cell c) throws IOException {
+		// TODO Auto-generated method stub
+		if(Bytes.compareTo(value, c.getValue())==0){
+			filterRow = false;
+		}
+		return ReturnCode.INCLUDE;
 	}
 
 }
