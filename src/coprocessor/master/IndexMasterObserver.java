@@ -1,6 +1,8 @@
 package coprocessor.master;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -13,11 +15,17 @@ import org.apache.hadoop.hbase.coprocessor.BaseMasterObserver;
 import org.apache.hadoop.hbase.coprocessor.MasterCoprocessorEnvironment;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.master.MasterServices;
+import org.apache.hadoop.hbase.master.TableLockManager;
 import org.apache.hadoop.hbase.master.handler.CreateTableHandler;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.hbck.TableLockChecker;
+import org.apache.hadoop.hbase.zookeeper.ZKTableStateManager;
 
+import index.IdxColumnQualifier;
 import index.IdxManager;
 import util.IdxConstants;
 import util.TableUtils;
+import util.ValueType;
 
 public class IndexMasterObserver extends BaseMasterObserver {
 
@@ -29,38 +37,47 @@ public class IndexMasterObserver extends BaseMasterObserver {
 	@Override
 	public void preCreateTable(ObserverContext<MasterCoprocessorEnvironment> ctx, HTableDescriptor desc,
 			HRegionInfo[] regions) throws IOException {
-		LOG.info("PreCreateTable START");
-
-		MasterServices master = ctx.getEnvironment().getMasterServices();
-		Configuration conf = master.getConfiguration();
-
-		//IdxHTableDescriptor Idesc = (IdxHTableDescriptor) desc;
-		//List<IdxColumnQualifier> idxColumns = Idesc.getIndexColumns();
-
-		//indexManager.addIndexForTable(desc.getNameAsString(), idxColumns);
-
-		// consider only one column family
+		
 		String tableName = desc.getNameAsString();
-		String idxTableName = TableUtils.getIndexTableName(tableName);
 		
-		TableName idxTName = TableName.valueOf(idxTableName);
-
-		// check if tables already exist
-
-//		boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
-//		boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
-//		if (isTableExist || isIdxTableExist) {
-//			LOG.error("Table already exists");
-//			throw new TableExistsException("Table " + tableName + " already exist.");
-//		}
-
-		// make index table
-		HTableDescriptor indextable = new HTableDescriptor(idxTName);
-		HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
-		indextable.addFamily(indCol);
-		HRegionInfo[] hRegionInfos = new HRegionInfo[]{new HRegionInfo(idxTName, null, null)};
+		LOG.info("PreCreateTable START : " + tableName);
 		
-		new CreateTableHandler(master, master.getMasterFileSystem(), indextable, conf, hRegionInfos, master).process();
+		if(TableUtils.isUserTable(Bytes.toBytes(tableName))){
+			MasterServices master = ctx.getEnvironment().getMasterServices();
+			Configuration conf = master.getConfiguration();
+			
+			//IdxHTableDescriptor Idesc = (IdxHTableDescriptor) desc;
+			
+			List<IdxColumnQualifier> idxColumns = new ArrayList<IdxColumnQualifier>();
+			IdxColumnQualifier col1 = new IdxColumnQualifier("q1", ValueType.String);
+			idxColumns.add(col1);
+			
+			indexManager.addIndexForTable(desc.getNameAsString(), idxColumns);
+
+			// consider only one column family
+			
+			String idxTableName = TableUtils.getIndexTableName(tableName);
+			
+			TableName idxTName = TableName.valueOf(idxTableName);
+			
+			// check if tables already exist
+
+//			boolean isTableExist = MetaReader.tableExists(master.getCatalogTracker(), tableName);
+//			boolean isIdxTableExist = MetaReader.tableExists(master.getCatalogTracker(), idxTableName);
+//			if (isTableExist || isIdxTableExist) {
+//				LOG.error("Table already exists");
+//				throw new TableExistsException("Table " + tableName + " already exist.");
+//			}
+
+			// make index table
+			HTableDescriptor indextable = new HTableDescriptor(idxTName);
+			HColumnDescriptor indCol = new HColumnDescriptor(IdxConstants.IDX_FAMILY);
+			indextable.addFamily(indCol);
+			HRegionInfo[] hRegionInfos = new HRegionInfo[]{new HRegionInfo(idxTName, null, null)};
+			master.createTable(indextable, null, 0, 0);
+		}else{
+			LOG.info("System Table or Index Table");
+		}
 
 		LOG.info("PreCreateTable END");
 	}
@@ -80,7 +97,7 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		if (isUserTable) {
 			String idxTableName = TableUtils.getIndexTableName(strTableName);
 			TableName idxTName = TableName.valueOf(idxTableName);
-			master.disableTable(idxTName, PRIORITY_USER, PRIORITY_USER);
+			master.disableTable(idxTName, 0, 0);
 		}
 	}
 
@@ -98,7 +115,7 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		if (isUserTable) {
 			String idxTableName = TableUtils.getIndexTableName(strTableName);
 			TableName idxTName = TableName.valueOf(idxTableName);
-			master.deleteTable(idxTName, PRIORITY_USER, PRIORITY_USER);
+			master.deleteTable(idxTName, 0, 0);
 		}
 	}
 

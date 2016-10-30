@@ -12,17 +12,19 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ClusterStatus;
+import org.apache.hadoop.hbase.HBaseIOException;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.master.LoadBalancer;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.RegionPlan;
+import org.apache.hadoop.hbase.master.balancer.BaseLoadBalancer;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import util.IdxConstants;
 import util.TableUtils;
 
-public class IdxLoadBalancer implements LoadBalancer {
+public class IdxLoadBalancer extends BaseLoadBalancer {
 
 	private static final Log LOG = LogFactory.getLog(IdxLoadBalancer.class);
 
@@ -68,7 +70,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 					// Just get the table name from any one of the values in the
 					// regioninfo list
 					if (tableName == null) {
-						tableName = regionInfoList.get(0).getTableNameAsString();
+						tableName = regionInfoList.get(0).getTable().getNameAsString();
 						regionMap = this.regionLocation.get(tableName);
 					}
 					if (regionMap != null) {
@@ -84,10 +86,10 @@ public class IdxLoadBalancer implements LoadBalancer {
 					List<HRegionInfo> idxRegionsToBeMoved = new ArrayList<HRegionInfo>();
 					List<HRegionInfo> uRegionsToBeMoved = new ArrayList<HRegionInfo>();
 					for (HRegionInfo regionInfo : regionsInfoList) {
-						if (regionInfo.isMetaRegion() || regionInfo.isRootRegion()) {
+						if (regionInfo.isMetaRegion() || regionInfo.isSystemTable()) {
 							continue;
 						}
-						tableName = regionInfo.getTableNameAsString();
+						tableName = regionInfo.getTable().getNameAsString();
 						// table name may change every time thats why always
 						// need to get table entries.
 						Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
@@ -116,7 +118,12 @@ public class IdxLoadBalancer implements LoadBalancer {
 			List<RegionPlan> regionPlanList = null;
 
 			if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == false) {
-				regionPlanList = this.loadBalancer.balanceCluster(clusterState);
+				try {
+					regionPlanList = this.loadBalancer.balanceCluster(clusterState);
+				} catch (HBaseIOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 				// regionPlanList is null means skipping balancing.
 				if (regionPlanList == null) {
 					return null;
@@ -141,7 +148,12 @@ public class IdxLoadBalancer implements LoadBalancer {
 				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(regionPlanList);
 				return prepareIndexPlan(clusterState, indexPlanList, regionPlanListCopy);
 			} else {
-				regionPlanList = this.loadBalancer.balanceCluster(userClusterState);
+				try {
+					regionPlanList = this.loadBalancer.balanceCluster(userClusterState);
+				} catch (HBaseIOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 				if (regionPlanList == null) {
 					regionPlanList = new ArrayList<RegionPlan>(1);
 				} else {
@@ -181,7 +193,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 			regionMap.put(regionInfo, serverName);
 		}
 	}
-	
+
 	/**
 	 * @param indexClusterState
 	 *            map of servers and regions
@@ -212,9 +224,9 @@ public class IdxLoadBalancer implements LoadBalancer {
 				String actualTableName = null;
 
 				for (HRegionInfo indexRegionInfo : indexRegions) {
-					String indexTableName = indexRegionInfo.getTableNameAsString();
+					String indexTableName = indexRegionInfo.getTable().getNameAsString();
 					actualTableName = TableUtils.extractTableName(indexTableName);
-					if (regionInfo.getTableNameAsString().equals(actualTableName) == false) {
+					if (regionInfo.getTable().getNameAsString().equals(actualTableName) == false) {
 						continue;
 					}
 					if (Bytes.compareTo(regionInfo.getStartKey(), indexRegionInfo.getStartKey()) != 0) {
@@ -234,7 +246,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 
 		return regionPlanList;
 	}
-	
+
 	/**
 	 * @param regionPlanList
 	 *            map of servers and regions
@@ -251,13 +263,21 @@ public class IdxLoadBalancer implements LoadBalancer {
 	// immediate
 	@Override
 	public Map<HRegionInfo, ServerName> immediateAssignment(List<HRegionInfo> regionList, List<ServerName> serverList) {
-		return this.loadBalancer.immediateAssignment(regionList, serverList);
+		Map<HRegionInfo, ServerName> map = null;
+
+		try {
+			map = this.loadBalancer.immediateAssignment(regionList, serverList);
+		} catch (HBaseIOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return map;
 	}
 
 	// random
 	@Override
-	public ServerName randomAssignment(List<ServerName> serverList) {
-		return this.loadBalancer.randomAssignment(serverList);
+	public ServerName randomAssignment(HRegionInfo regionInfo, List<ServerName> servers) {
+		return super.randomAssignment(regionInfo, servers);
 	}
 
 	// retain
@@ -272,7 +292,12 @@ public class IdxLoadBalancer implements LoadBalancer {
 		}
 		Map<ServerName, List<HRegionInfo>> plan = null;
 		if (userRegionsMap.isEmpty() == false) {
-			plan = this.loadBalancer.retainAssignment(userRegionsMap, serverList);
+			try {
+				plan = this.loadBalancer.retainAssignment(userRegionsMap, serverList);
+			} catch (HBaseIOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			if (plan == null) {
 				return null;
 			}
@@ -298,7 +323,12 @@ public class IdxLoadBalancer implements LoadBalancer {
 
 		Map<ServerName, List<HRegionInfo>> plan = null;
 		if (userRegions.isEmpty() == false) {
-			plan = this.loadBalancer.roundRobinAssignment(userRegions, serverList);
+			try {
+				plan = this.loadBalancer.roundRobinAssignment(userRegions, serverList);
+			} catch (HBaseIOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			if (plan == null) {
 				LOG.info("No region plan for user regions.");
 				return null;
@@ -344,7 +374,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 	private void classifyRegion(HRegionInfo regionInfo, List<HRegionInfo> userRegions, List<HRegionInfo> indexRegions) {
 		// if table name has index table suffix, table is index table
 		// otherwise, table is user table
-		if (regionInfo.getTableNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
+		if (regionInfo.getTable().getNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
 			indexRegions.add(regionInfo);
 		} else {
 			userRegions.add(regionInfo);
@@ -355,7 +385,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 			List<HRegionInfo> indexRegions, List<ServerName> serverList) {
 
 		HRegionInfo regionInfo = entry.getKey();
-		if (regionInfo.getTableNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
+		if (regionInfo.getTable().getNameAsString().endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
 			indexRegions.add(regionInfo);
 			return;
 		}
@@ -376,7 +406,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 	 */
 
 	public void putRegionPlan(HRegionInfo regionInfo, ServerName serverName) {
-		String tableName = regionInfo.getTableNameAsString();
+		String tableName = regionInfo.getTable().getNameAsString();
 		synchronized (this.regionLocation) {
 			// get region map of table
 			Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
@@ -419,7 +449,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 
 				// if can't find server, random assign region
 				if (destServer == null) {
-					destServer = this.randomAssignment(serverList);
+					destServer = this.randomAssignment(regionInfo, serverList);
 				}
 
 				// otherwise, assign region to server
@@ -444,7 +474,7 @@ public class IdxLoadBalancer implements LoadBalancer {
 	 */
 
 	private ServerName getServerNameForIdxRegion(HRegionInfo regionInfo) {
-		String indexTableName = regionInfo.getTableNameAsString();
+		String indexTableName = regionInfo.getTable().getNameAsString();
 		String userTableName = TableUtils.extractTableName(indexTableName);
 
 		synchronized (this.regionLocation) {
