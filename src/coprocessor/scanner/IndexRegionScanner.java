@@ -21,7 +21,8 @@ import index.SingleColumnSearchFilter;
 public class IndexRegionScanner implements RegionScanner {
 	private static final Log LOG = LogFactory.getLog(IndexRegionScanner.class);
 
-	private RegionScanner scanner = null;
+	private RegionScanner tableScanner = null;
+	private RegionScanner indexScanner = null;
 	private Scan scan = null;
 
 	private Cell currentCell = null;
@@ -33,8 +34,9 @@ public class IndexRegionScanner implements RegionScanner {
 
 	// private SingleColumnSearchFilter filter = null;
 
-	public IndexRegionScanner(RegionScanner scanner, Scan scan) {
-		this.scanner = scanner;
+	public IndexRegionScanner(RegionScanner table,RegionScanner index, Scan scan) {
+		this.tableScanner = table;
+		this.indexScanner = table;
 		this.scan = scan;
 
 		LOG.info("IndexRegionScanner Open");
@@ -42,24 +44,25 @@ public class IndexRegionScanner implements RegionScanner {
 
 	@Override
 	public void close() throws IOException {
-		scanner.close();
+		tableScanner.close();
+		indexScanner.close();
 		isClosed = true;
 	}
 
 	@Override
 	public long getMvccReadPoint() {
-		return scanner.getMvccReadPoint();
+		return indexScanner.getMvccReadPoint();
 	}
 
 	@Override
 	public HRegionInfo getRegionInfo() {
-		return scanner.getRegionInfo();
+		return indexScanner.getRegionInfo();
 	}
 
 	@Override
 	public boolean isFilterDone() {
 		try {
-			return scanner.isFilterDone();
+			return indexScanner.isFilterDone();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return false;
@@ -71,7 +74,7 @@ public class IndexRegionScanner implements RegionScanner {
 		if (!hasMore) {
 			return false;
 		}
-		return scanner.reseek(row);
+		return indexScanner.reseek(row);
 	}
 
 	public Scan getScan() {
@@ -79,7 +82,7 @@ public class IndexRegionScanner implements RegionScanner {
 	}
 
 	public RegionScanner getRegionScanner() {
-		return this.scanner;
+		return this.indexScanner;
 	}
 
 	public boolean isClosed() {
@@ -93,14 +96,14 @@ public class IndexRegionScanner implements RegionScanner {
 			return false;
 		}
 
-		boolean tmpHasMore = this.scanner.next(list);
+		boolean tmpHasMore = this.indexScanner.next(list);
 		if (list != null && list.size() > 0) {
 			Cell c = list.get(0);
 			this.currentCell = c;
 		}
 
 		while (list.size() < 1 && tmpHasMore) {
-			tmpHasMore = this.scanner.next(list);
+			tmpHasMore = this.indexScanner.next(list);
 			if (list != null && list.size() > 0) {
 				Cell c = list.get(0);
 				this.currentCell = c;
@@ -113,7 +116,7 @@ public class IndexRegionScanner implements RegionScanner {
 
 	@Override
 	public boolean next(List<Cell> list, ScannerContext ctx) throws IOException {
-		return false;
+		return indexScanner.next(list, ctx);
 	}
 
 	@Override
@@ -128,12 +131,12 @@ public class IndexRegionScanner implements RegionScanner {
 
 	@Override
 	public boolean nextRaw(List<Cell> list) throws IOException {
-		return false;
+		return indexScanner.nextRaw(list);
 	}
 
 	@Override
 	public boolean nextRaw(List<Cell> list, ScannerContext ctx) throws IOException {
-		return false;
+		return indexScanner.nextRaw(list, ctx);
 	}
 
 }
