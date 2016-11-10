@@ -101,7 +101,7 @@ public class IndexMasterObserver extends BaseMasterObserver {
 		}
 	}
 
-	// Calling this function before making user table delete
+	// Calling this function before making user table deleted
 	@Override
 	public void preDeleteTable(ObserverContext<MasterCoprocessorEnvironment> ctx, TableName tName) throws IOException {
 		// TODO Auto-generated method stub

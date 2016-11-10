@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
@@ -25,8 +26,11 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.filter.BinaryComparator;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.RowFilter;
+import org.apache.hadoop.hbase.filter.ValueFilter;
 import org.apache.hadoop.hbase.regionserver.HStore;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
@@ -46,6 +50,7 @@ import org.apache.zookeeper.ZooKeeper;
 
 import coprocessor.scanner.IndexRegionScanner;
 import index.IdxColumnQualifier;
+import index.IdxFilter;
 import index.IdxManager;
 import util.IdxConstants;
 import util.TableUtils;
@@ -62,36 +67,53 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public void stop(CoprocessorEnvironment e) throws IOException {
 		// nothing to do here
 	}
-
+	
 	@Override
 	public KeyValueScanner preStoreScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store,
 			Scan scan, NavigableSet<byte[]> targetCols, KeyValueScanner s) throws IOException {
-		//ScanInfo scanInfo = getScanInfo(store, c.getEnvironment());
-		
+
 		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
 		String tableName = tName.getNameAsString();
+		
+		LOG.info("preStoreScannerOpen START : " + tableName);
 
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
-		if(isUserTable){
-			
-			String idxTableName = TableUtils.getIndexTableName(tableName);
-			TableName idxTName = TableName.valueOf(idxTableName);
-			
-			List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
-			Region idxRegion = idxRegions.get(0);
-			
-			LOG.info("preStoreScannerOpen START : " + tableName + " & " + idxTableName);
-			Scan indScan = new Scan();
-			Store indStore = idxRegion.getStore(Bytes.toBytes("IND"));
-			ScanInfo scanInfo = null;
-			scanInfo = indStore.getScanInfo();
-			long ttl = scanInfo.getTtl();
+		if (isUserTable) {
+			Filter f = scan.getFilter();
+			boolean isIndexFilter = (f instanceof IdxFilter);
+			//boolean isValueFilter = true;
 
-			scanInfo = new ScanInfo(scanInfo.getConfiguration(), indStore.getFamily(), ttl, scanInfo.getTimeToPurgeDeletes(),
-					scanInfo.getComparator());
-			LOG.info("well done");
-			return new StoreScanner(indStore, scanInfo, indScan, targetCols,
-					((HStore) indStore).getHRegion().getReadpoint(IsolationLevel.READ_COMMITTED));
+			if (f != null && isIndexFilter) {
+				String idxTableName = TableUtils.getIndexTableName(tableName);
+				TableName idxTName = TableName.valueOf(idxTableName);
+
+				List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
+				Region idxRegion = idxRegions.get(0);
+
+				LOG.info("filter string : " + f.toString());
+				//Filter indFilter;
+				Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
+
+				LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
+
+				Scan indScan = new Scan();
+				indScan.setFilter(indFilter);
+				Map<byte[], NavigableSet<byte[]>> map = indScan.getFamilyMap();
+				NavigableSet<byte[]> indCols = map.get(Bytes.toBytes("IND"));
+				Store indStore = idxRegion.getStore(Bytes.toBytes("IND"));
+				ScanInfo scanInfo = null;
+				scanInfo = indStore.getScanInfo();
+				long ttl = scanInfo.getTtl();
+				
+				LOG.info("filter string : " + indScan.getFilter().toString());
+
+				scanInfo = new ScanInfo(scanInfo.getConfiguration(), indStore.getFamily(), ttl,
+						scanInfo.getTimeToPurgeDeletes(), scanInfo.getComparator());
+				LOG.info("well done");
+				ctx.complete();
+				return new StoreScanner(indStore, scanInfo, indScan, indCols,
+						((HStore) indStore).getHRegion().getReadpoint(IsolationLevel.READ_COMMITTED));
+			}
 		}
 		return s;
 	}
@@ -121,10 +143,13 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			String idxTableName = TableUtils.getIndexTableName(tableName);
 			TableName idxTName = TableName.valueOf(idxTableName);
 
+			// get index column
 			List<IdxColumnQualifier> idxColumns = indexManager.getIndexOfTable(tableName);
 			for (IdxColumnQualifier cq : idxColumns) {
 				LOG.info("index column : " + cq.getQualifierName());
 			}
+			
+			// get region
 			HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
 			Region region = ctx.getEnvironment().getRegion();
 
@@ -132,14 +157,16 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			Map<byte[], List<Cell>> map = put.getFamilyCellMap();
 			List<Cell> list = map.get(Bytes.toBytes("cf1"));
 
-			// index table rowkey = column value + id + length all qualifier
-			// number
-			// and value + user table rowkey
+			/*
+			 * index table rowkey = region start key + "idx" + all(qualifier
+			 * number + value)
+			 */
 
-			// get start key
+			// get region start keys
 			String startKey = Bytes.toString(hRegionInfo.getStartKey());
 			String rowKey = startKey + "idx";
 
+			// get column value, id,
 			for (Cell c : list) {
 				String qual = Bytes.toString(CellUtil.cloneQualifier(c));
 				qual = qual.substring(1);
@@ -149,9 +176,8 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			rowKey += Bytes.toString(put.getRow());
 			LOG.info("Row Key is " + rowKey);
 
+			// make put for index table
 			Put idxPut = new Put(Bytes.toBytes(rowKey));
-			// Cell newCell = CellUtil.createCell(Bytes.toBytes(rowKey),
-			// IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER);
 			idxPut.addColumn(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, IdxConstants.IDX_VALUE);
 
 			// index table and put
