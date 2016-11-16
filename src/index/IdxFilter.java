@@ -38,16 +38,26 @@ public class IdxFilter extends FilterBase {
 		// TODO Auto-generated method stub
 		byte[] rowkey = Bytes.copy(buffer, offset, length);
 		
-		LOG.info("buffer is : "+Bytes.toString(rowkey));
+		//LOG.info("buffer is : "+Bytes.toString(rowkey));
 		String rowKey = Bytes.toString(rowkey);
-		String qualValue = rowKey.split("idx")[1];
-		LOG.info("qual value is : "+ qualValue);
+		Bytes.contains(rowkey, this.value);
+		//String qualValue = rowKey.split("idx")[1];
+		//String val = Bytes.toString(this.value);
+		//LOG.info("qual value is : "+ qualValue);
 		
-		if(rowKey.equals("idx1v1row1")){
+//		if(rowKey.contains(val)){
+//			return false;
+//		}else{
+//			return true;
+//		}
+		
+		if(Bytes.contains(rowkey, this.value)){
+			return false;
+		}else{
 			return true;
 		}
 		
-		return super.filterRowKey(buffer, offset, length);
+		//return super.filterRowKey(buffer, offset, length);
 		
 	}
 	

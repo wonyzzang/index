@@ -90,14 +90,14 @@ public class IndexRegionObserver extends BaseRegionObserver {
 				List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
 				Region idxRegion = idxRegions.get(0);
 
-				LOG.info("filter string : " + f.toString());
+				//LOG.info("filter string : " + f.toString());
 				//Filter indFilter;
 				Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
 
-				LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
+				//LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
 
 				Scan indScan = new Scan();
-				indScan.setFilter(indFilter);
+				//indScan.setFilter(indFilter);
 				Map<byte[], NavigableSet<byte[]>> map = indScan.getFamilyMap();
 				NavigableSet<byte[]> indCols = map.get(Bytes.toBytes("IND"));
 				Store indStore = idxRegion.getStore(Bytes.toBytes("IND"));
@@ -145,9 +145,9 @@ public class IndexRegionObserver extends BaseRegionObserver {
 
 			// get index column
 			List<IdxColumnQualifier> idxColumns = indexManager.getIndexOfTable(tableName);
-			for (IdxColumnQualifier cq : idxColumns) {
-				LOG.info("index column : " + cq.getQualifierName());
-			}
+//			for (IdxColumnQualifier cq : idxColumns) {
+//				LOG.info("index column : " + cq.getQualifierName());
+//			}
 			
 			// get region
 			HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
@@ -174,7 +174,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 				rowKey += qual;
 			}
 			rowKey += Bytes.toString(put.getRow());
-			LOG.info("Row Key is " + rowKey);
+			//LOG.info("Row Key is " + rowKey);
 
 			// make put for index table
 			Put idxPut = new Put(Bytes.toBytes(rowKey));
@@ -186,7 +186,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			idxRegion.put(idxPut);
 		}
 
-		LOG.info("PrePut END : " + tableName);
+		//LOG.info("PrePut END : " + tableName);
 	}
 
 }
