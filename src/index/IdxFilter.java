@@ -15,6 +15,8 @@ import coprocessor.regionserver.IndexRegionObserver;
 
 public class IdxFilter extends FilterBase {
 	
+	private byte[] qualifier = null;
+	private byte[] qualNum = null;
 	private byte[] value = null;
 	private boolean filterRow = false;
 	
@@ -24,13 +26,23 @@ public class IdxFilter extends FilterBase {
 		super();
 	}
 	
-	public IdxFilter(byte[] value){
+	public IdxFilter(byte[] qualifier, byte[] value){
+		this.qualifier = qualifier;
+		this.qualNum = getQualNumber(qualifier);
 		this.value = value;
 	}
 	
-	public IdxFilter(byte[] value, boolean filterRow){
+	public IdxFilter(byte[] qualifier, byte[] value, boolean filterRow){
+		this.qualifier = qualifier;
+		this.qualNum = getQualNumber(qualifier);
 		this.value = value;
 		this.filterRow = filterRow;
+	}
+	
+	private byte[] getQualNumber(byte[] qual){
+		int qLength = Bytes.toBytes("q").length;
+
+		return Bytes.copy(qual,qLength, qual.length-qLength);
 	}
 	
 	@Override
@@ -40,7 +52,8 @@ public class IdxFilter extends FilterBase {
 		
 		//LOG.info("buffer is : "+Bytes.toString(rowkey));
 		String rowKey = Bytes.toString(rowkey);
-		Bytes.contains(rowkey, this.value);
+		byte[] query = Bytes.add(Bytes.toBytes("idx"),this.qualNum,this.value);
+		query = Bytes.add(query, Bytes.toBytes("2v"));
 		//String qualValue = rowKey.split("idx")[1];
 		//String val = Bytes.toString(this.value);
 		//LOG.info("qual value is : "+ qualValue);
@@ -51,7 +64,7 @@ public class IdxFilter extends FilterBase {
 //			return true;
 //		}
 		
-		if(Bytes.contains(rowkey, this.value)){
+		if(Bytes.contains(rowkey, query)){
 			return false;
 		}else{
 			return true;
@@ -106,6 +119,8 @@ public class IdxFilter extends FilterBase {
 	@Override
 	public byte[] toByteArray(){
 		byte[] array = new byte[0];
+		array = Bytes.add(array, Bytes.toBytes(this.qualifier.length));
+		array = Bytes.add(array, this.qualifier);
 		array = Bytes.add(array, Bytes.toBytes(this.value.length));
 		array = Bytes.add(array, this.value);
 		array = Bytes.add(array, Bytes.toBytes(this.filterRow));
@@ -116,14 +131,19 @@ public class IdxFilter extends FilterBase {
 		IdxFilter filter = null;
 		int length = bytes.length;
 		
-		byte[] valLeng = Bytes.copy(bytes, 0, 4);
+		byte[] qualLength = Bytes.copy(bytes, 0, 4);
+		int qualLen = Bytes.toInt(qualLength);
+		
+		byte[] qualifier = Bytes.copy(bytes, 4, qualLen);
+		
+		byte[] valLeng = Bytes.copy(bytes, 4+qualLen, 4);
 		int valLen = Bytes.toInt(valLeng);
 		
-		byte[] val = Bytes.copy(bytes, 4, valLen);
+		byte[] val = Bytes.copy(bytes, 8+qualLen, valLen);
 		
-		byte[] fRow = Bytes.copy(bytes, valLen, 1);
+		byte[] fRow = Bytes.copy(bytes, 8+qualLen+valLen, 1);
 		boolean filterRow = Bytes.toBoolean(fRow);
-		filter = new IdxFilter(val, filterRow);
+		filter = new IdxFilter(qualifier, val, filterRow);
 		
 		return filter;
 	}

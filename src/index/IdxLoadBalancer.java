@@ -19,164 +19,231 @@ import org.apache.hadoop.hbase.master.LoadBalancer;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.RegionPlan;
 import org.apache.hadoop.hbase.master.balancer.BaseLoadBalancer;
+import org.apache.hadoop.hbase.master.balancer.StochasticLoadBalancer;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import util.IdxConstants;
 import util.TableUtils;
 
-public class IdxLoadBalancer extends BaseLoadBalancer {
+public class IdxLoadBalancer extends StochasticLoadBalancer {
+	
+	private MasterServices master;
 
 	private static final Log LOG = LogFactory.getLog(IdxLoadBalancer.class);
 
-	private LoadBalancer loadBalancer;
-	private MasterServices master;
-
-	// Map of tablename and region, server name map
 	private Map<String, Map<HRegionInfo, ServerName>> regionLocation = new ConcurrentHashMap<String, Map<HRegionInfo, ServerName>>();
+	
 
 	@Override
 	public Configuration getConf() {
-		return loadBalancer.getConf();
+		return super.getConf();
 	}
 
 	@Override
 	public void setConf(Configuration conf) {
-		this.loadBalancer.setConf(conf);
+		super.setConf(conf);
+	}
+	
+
+	@Override
+	public void setClusterStatus(ClusterStatus cs) {
+		super.setClusterStatus(cs);
 	}
 
-	// balance cluster state
 	@Override
-	public List<RegionPlan> balanceCluster(Map<ServerName, List<HRegionInfo>> clusterState) {
-		synchronized (this.regionLocation) {
-			Map<ServerName, List<HRegionInfo>> userClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
-			Map<ServerName, List<HRegionInfo>> indexClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
-			boolean balanceByTable = this.master.getConfiguration().getBoolean("hbase.master.loadbalance.bytable",
-					true);
+	public void setMasterServices(MasterServices master) {
+		this.master = master;
+		super.setMasterServices(master);
+	}
+	
+//	
+//	@Override
+//	public List<RegionPlan> balanceCluster(Map<ServerName, List<HRegionInfo>> clusterState) {
+//		// TODO Auto-generated method stub
+//		LOG.info("Start balanceCluster");
+//		synchronized (this.regionLocation) {
+//			Map<ServerName, List<HRegionInfo>> userClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
+//			Map<ServerName, List<HRegionInfo>> indexClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
+//			boolean balanceByTable = true;
+//			String tableName = null;
+//
+//			if (balanceByTable) {
+//				// Check and modify the regionLocation map based on values of
+//				// cluster state because we will
+//				// call balancer only when the cluster is in stable state and
+//				// reliable.
+//				Map<HRegionInfo, ServerName> regionMap = null;
+//				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
+//					ServerName serverName = serverVsRegionList.getKey();
+//					List<HRegionInfo> regionInfoList = serverVsRegionList.getValue();
+//					if (regionInfoList.isEmpty()) {
+//						continue;
+//					}
+//					// Just get the table name from any one of the values in the
+//					// regioninfo list
+//					if (tableName == null) {
+//						tableName = regionInfoList.get(0).getTable().getNameAsString();
+//						regionMap = this.regionLocation.get(tableName);
+//					}
+//					if (regionMap != null) {
+//						for (HRegionInfo regionInfo : regionInfoList) {
+//							updateServer(regionMap, serverName, regionInfo);
+//						}
+//					}
+//				}
+//			} else {
+//				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
+//					ServerName serverName = serverVsRegionList.getKey();
+//					List<HRegionInfo> regionsInfoList = serverVsRegionList.getValue();
+//					List<HRegionInfo> idxRegionsToBeMoved = new ArrayList<HRegionInfo>();
+//					List<HRegionInfo> uRegionsToBeMoved = new ArrayList<HRegionInfo>();
+//					for (HRegionInfo regionInfo : regionsInfoList) {
+//						if (regionInfo.isMetaRegion() || regionInfo.isSystemTable()) {
+//							continue;
+//						}
+//						tableName = regionInfo.getTable().getNameAsString();
+//						// table name may change every time thats why always
+//						// need to get table entries.
+//						Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
+//						if (regionMap != null) {
+//							updateServer(regionMap, serverName, regionInfo);
+//						}
+//						if (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
+//							idxRegionsToBeMoved.add(regionInfo);
+//							continue;
+//						}
+//						uRegionsToBeMoved.add(regionInfo);
+//					}
+//					// there may be dummy entries here if assignments by table
+//					// is set
+//					userClusterState.put(serverName, uRegionsToBeMoved);
+//					indexClusterState.put(serverName, idxRegionsToBeMoved);
+//				}
+//			}
+//			/*
+//			 * In case of table wise balancing if balanceCluster called for
+//			 * index table then no user regions available. At that time skip
+//			 * default balancecluster call and get region plan from region
+//			 * location map if exist.
+//			 */
+//			// TODO : Needs refactoring here
+//			List<RegionPlan> regionPlanList = null;
+//
+//			if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == false) {
+//				regionPlanList = super.balanceCluster(clusterState);
+//				
+//				// regionPlanList is null means skipping balancing.
+//				if (regionPlanList == null) {
+//					return null;
+//				} else {
+//					saveRegionPlanList(regionPlanList);
+//					return regionPlanList;
+//				}
+//			} else if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == true) {
+//				regionPlanList = new ArrayList<RegionPlan>(1);
+//				String actualTableName = TableUtils.extractTableName(tableName);
+//				Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
+//				// no previous region plan for user table.
+//				if (regionMap == null) {
+//					return null;
+//				}
+//				for (Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
+//					regionPlanList.add(new RegionPlan(entry.getKey(), null, entry.getValue()));
+//				}
+//				// for preparing the index plan
+//				List<RegionPlan> indexPlanList = new ArrayList<RegionPlan>(1);
+//				// copy of region plan to iterate.
+//				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(regionPlanList);
+//				return prepareIndexPlan(clusterState, indexPlanList, regionPlanListCopy);
+//			} else {
+//				regionPlanList = super.balanceCluster(userClusterState);
+//				
+//				if (regionPlanList == null) {
+//					regionPlanList = new ArrayList<RegionPlan>(1);
+//				} else {
+//					saveRegionPlanList(regionPlanList);
+//				}
+//				List<RegionPlan> userRegionPlans = new ArrayList<RegionPlan>(1);
+//
+//				for (Entry<String, Map<HRegionInfo, ServerName>> tableVsRegions : this.regionLocation.entrySet()) {
+//					Map<HRegionInfo, ServerName> regionMap = regionLocation.get(tableVsRegions.getKey());
+//					// no previous region plan for user table.
+//					if (regionMap == null) {
+//					} else {
+//						for (Entry<HRegionInfo, ServerName> e : regionMap.entrySet()) {
+//							userRegionPlans.add(new RegionPlan(e.getKey(), null, e.getValue()));
+//						}
+//					}
+//				}
+//
+//				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(userRegionPlans);
+//				return prepareIndexPlan(indexClusterState, regionPlanList, regionPlanListCopy);
+//			}
+//		}
+//	}
+	
+	@Override
+	public ServerName randomAssignment(HRegionInfo regionInfo, List<ServerName> servers) {
+		LOG.info("Start randomAssignment");
+		return super.randomAssignment(regionInfo, servers);
+	}
+	
+	@Override
+	public Map<ServerName, List<HRegionInfo>> roundRobinAssignment(List<HRegionInfo> regionList,
+			List<ServerName> serverList) {
+		LOG.info("Start roundRobinAssignment");
+		List<HRegionInfo> userRegions = new ArrayList<HRegionInfo>(1);
+		List<HRegionInfo> indexRegions = new ArrayList<HRegionInfo>(1);
 
-			String tableName = null;
+		// separate user table and index table
+		for (HRegionInfo regionInfo : regionList) {
+			classifyRegion(regionInfo, userRegions, indexRegions);
+		}
 
-			if (balanceByTable) {
-				// Check and modify the regionLocation map based on values of
-				// cluster state because we will
-				// call balancer only when the cluster is in stable state and
-				// reliable.
-				Map<HRegionInfo, ServerName> regionMap = null;
-				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
-					ServerName serverName = serverVsRegionList.getKey();
-					List<HRegionInfo> regionInfoList = serverVsRegionList.getValue();
-					if (regionInfoList.isEmpty()) {
-						continue;
-					}
-					// Just get the table name from any one of the values in the
-					// regioninfo list
-					if (tableName == null) {
-						tableName = regionInfoList.get(0).getTable().getNameAsString();
-						regionMap = this.regionLocation.get(tableName);
-					}
-					if (regionMap != null) {
-						for (HRegionInfo regionInfo : regionInfoList) {
-							updateServer(regionMap, serverName, regionInfo);
-						}
-					}
-				}
-			} else {
-				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
-					ServerName serverName = serverVsRegionList.getKey();
-					List<HRegionInfo> regionsInfoList = serverVsRegionList.getValue();
-					List<HRegionInfo> idxRegionsToBeMoved = new ArrayList<HRegionInfo>();
-					List<HRegionInfo> uRegionsToBeMoved = new ArrayList<HRegionInfo>();
-					for (HRegionInfo regionInfo : regionsInfoList) {
-						if (regionInfo.isMetaRegion() || regionInfo.isSystemTable()) {
-							continue;
-						}
-						tableName = regionInfo.getTable().getNameAsString();
-						// table name may change every time thats why always
-						// need to get table entries.
-						Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
-						if (regionMap != null) {
-							updateServer(regionMap, serverName, regionInfo);
-						}
-						if (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
-							idxRegionsToBeMoved.add(regionInfo);
-							continue;
-						}
-						uRegionsToBeMoved.add(regionInfo);
-					}
-					// there may be dummy entries here if assignments by table
-					// is set
-					userClusterState.put(serverName, uRegionsToBeMoved);
-					indexClusterState.put(serverName, idxRegionsToBeMoved);
-				}
+		Map<ServerName, List<HRegionInfo>> plan = null;
+		if (userRegions.isEmpty() == false) {
+			plan = super.roundRobinAssignment(userRegions, serverList);
+			
+			if (plan == null) {
+				LOG.info("No region plan for user regions.");
+				return null;
 			}
-			/*
-			 * In case of table wise balancing if balanceCluster called for
-			 * index table then no user regions available. At that time skip
-			 * default balancecluster call and get region plan from region
-			 * location map if exist.
-			 */
-			// TODO : Needs refactoring here
-			List<RegionPlan> regionPlanList = null;
 
-			if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == false) {
-				try {
-					regionPlanList = this.loadBalancer.balanceCluster(clusterState);
-				} catch (HBaseIOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				// regionPlanList is null means skipping balancing.
-				if (regionPlanList == null) {
-					return null;
-				} else {
-					saveRegionPlanList(regionPlanList);
-					return regionPlanList;
-				}
-			} else if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == true) {
-				regionPlanList = new ArrayList<RegionPlan>(1);
-				String actualTableName = TableUtils.extractTableName(tableName);
-				Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
-				// no previous region plan for user table.
-				if (regionMap == null) {
-					return null;
-				}
-				for (Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
-					regionPlanList.add(new RegionPlan(entry.getKey(), null, entry.getValue()));
-				}
-				// for preparing the index plan
-				List<RegionPlan> indexPlanList = new ArrayList<RegionPlan>(1);
-				// copy of region plan to iterate.
-				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(regionPlanList);
-				return prepareIndexPlan(clusterState, indexPlanList, regionPlanListCopy);
-			} else {
-				try {
-					regionPlanList = this.loadBalancer.balanceCluster(userClusterState);
-				} catch (HBaseIOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				if (regionPlanList == null) {
-					regionPlanList = new ArrayList<RegionPlan>(1);
-				} else {
-					saveRegionPlanList(regionPlanList);
-				}
-				List<RegionPlan> userRegionPlans = new ArrayList<RegionPlan>(1);
-
-				for (Entry<String, Map<HRegionInfo, ServerName>> tableVsRegions : this.regionLocation.entrySet()) {
-					Map<HRegionInfo, ServerName> regionMap = regionLocation.get(tableVsRegions.getKey());
-					// no previous region plan for user table.
-					if (regionMap == null) {
-					} else {
-						for (Entry<HRegionInfo, ServerName> e : regionMap.entrySet()) {
-							userRegionPlans.add(new RegionPlan(e.getKey(), null, e.getValue()));
-						}
-					}
-				}
-
-				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(userRegionPlans);
-				return prepareIndexPlan(indexClusterState, regionPlanList, regionPlanListCopy);
+			// save assignment plan
+			synchronized (this.regionLocation) {
+				savePlan(plan);
 			}
 		}
+		plan = prepareIndexRegionPlan(indexRegions, plan, serverList);
+		return plan;
 	}
+	
+	@Override
+	public Map<ServerName, List<HRegionInfo>> retainAssignment(Map<HRegionInfo, ServerName> regionList,
+			List<ServerName> serverList) {
+		LOG.info("Start retainAssignment");
+		Map<HRegionInfo, ServerName> userRegionsMap = new ConcurrentHashMap<HRegionInfo, ServerName>(1);
+		List<HRegionInfo> indexRegions = new ArrayList<HRegionInfo>(1);
+		
+		for (Entry<HRegionInfo, ServerName> entry : regionList.entrySet()) {
+			classifyRegion(entry, userRegionsMap, indexRegions, serverList);
+		}
+		
+		Map<ServerName, List<HRegionInfo>> plan = null;
+		if (userRegionsMap.isEmpty() == false) {
+			plan = super.retainAssignment(userRegionsMap, serverList);
+			if (plan == null) {
+				return null;
+			}
+			
+			synchronized (this.regionLocation) {
+				savePlan(plan);
+			}
+		}
+		plan = prepareIndexRegionPlan(indexRegions, plan, serverList);
+		return plan;
+	}
+
 
 	/**
 	 * @param regionMap
@@ -258,89 +325,6 @@ public class IdxLoadBalancer extends BaseLoadBalancer {
 			HRegionInfo regionInfo = regionPlan.getRegionInfo();
 			putRegionPlan(regionInfo, regionPlan.getDestination());
 		}
-	}
-
-	// immediate
-	@Override
-	public Map<HRegionInfo, ServerName> immediateAssignment(List<HRegionInfo> regionList, List<ServerName> serverList) {
-		Map<HRegionInfo, ServerName> map = null;
-
-		try {
-			map = this.loadBalancer.immediateAssignment(regionList, serverList);
-		} catch (HBaseIOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return map;
-	}
-
-	// random
-	@Override
-	public ServerName randomAssignment(HRegionInfo regionInfo, List<ServerName> servers) {
-		return super.randomAssignment(regionInfo, servers);
-	}
-
-	// retain
-	@Override
-	public Map<ServerName, List<HRegionInfo>> retainAssignment(Map<HRegionInfo, ServerName> regionList,
-			List<ServerName> serverList) {
-
-		Map<HRegionInfo, ServerName> userRegionsMap = new ConcurrentHashMap<HRegionInfo, ServerName>(1);
-		List<HRegionInfo> indexRegions = new ArrayList<HRegionInfo>(1);
-		for (Entry<HRegionInfo, ServerName> entry : regionList.entrySet()) {
-			classifyRegion(entry, userRegionsMap, indexRegions, serverList);
-		}
-		Map<ServerName, List<HRegionInfo>> plan = null;
-		if (userRegionsMap.isEmpty() == false) {
-			try {
-				plan = this.loadBalancer.retainAssignment(userRegionsMap, serverList);
-			} catch (HBaseIOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			if (plan == null) {
-				return null;
-			}
-			synchronized (this.regionLocation) {
-				savePlan(plan);
-			}
-		}
-		plan = prepareIndexRegionPlan(indexRegions, plan, serverList);
-		return plan;
-	}
-
-	// round robin
-	@Override
-	public Map<ServerName, List<HRegionInfo>> roundRobinAssignment(List<HRegionInfo> regionList,
-			List<ServerName> serverList) {
-		List<HRegionInfo> userRegions = new ArrayList<HRegionInfo>(1);
-		List<HRegionInfo> indexRegions = new ArrayList<HRegionInfo>(1);
-
-		// separate user table and index table
-		for (HRegionInfo regionInfo : regionList) {
-			classifyRegion(regionInfo, userRegions, indexRegions);
-		}
-
-		Map<ServerName, List<HRegionInfo>> plan = null;
-		if (userRegions.isEmpty() == false) {
-			try {
-				plan = this.loadBalancer.roundRobinAssignment(userRegions, serverList);
-			} catch (HBaseIOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			if (plan == null) {
-				LOG.info("No region plan for user regions.");
-				return null;
-			}
-
-			// save assignment plan
-			synchronized (this.regionLocation) {
-				savePlan(plan);
-			}
-		}
-		plan = prepareIndexRegionPlan(indexRegions, plan, serverList);
-		return plan;
 	}
 
 	/**
@@ -466,6 +450,7 @@ public class IdxLoadBalancer extends BaseLoadBalancer {
 		return plan;
 	}
 
+	
 	/**
 	 * @param regionInfo
 	 *            regionInfo of index table's region
@@ -495,21 +480,6 @@ public class IdxLoadBalancer extends BaseLoadBalancer {
 			}
 		}
 		return null;
-	}
-
-	@Override
-	public void setClusterStatus(ClusterStatus cs) {
-		this.loadBalancer.setClusterStatus(cs);
-	}
-
-	@Override
-	public void setMasterServices(MasterServices master) {
-		this.master = master;
-		this.loadBalancer.setMasterServices(master);
-	}
-
-	public void setLoadBalancer(LoadBalancer lb) {
-		this.loadBalancer = lb;
 	}
 
 }

@@ -92,11 +92,13 @@ public class IndexRegionObserver extends BaseRegionObserver {
 
 				//LOG.info("filter string : " + f.toString());
 				//Filter indFilter;
-				Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
+				//Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
 
 				//LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
 
 				Scan indScan = new Scan();
+				indScan.setStartRow(Bytes.toBytes("idx1v1"));
+				indScan.setStopRow(Bytes.toBytes("idx1v2"));
 				//indScan.setFilter(indFilter);
 				Map<byte[], NavigableSet<byte[]>> map = indScan.getFamilyMap();
 				NavigableSet<byte[]> indCols = map.get(Bytes.toBytes("IND"));
@@ -105,7 +107,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 				scanInfo = indStore.getScanInfo();
 				long ttl = scanInfo.getTtl();
 				
-				LOG.info("filter string : " + indScan.getFilter().toString());
+				//LOG.info("filter string : " + indScan.getFilter().toString());
 
 				scanInfo = new ScanInfo(scanInfo.getConfiguration(), indStore.getFamily(), ttl,
 						scanInfo.getTimeToPurgeDeletes(), scanInfo.getComparator());
