@@ -56,131 +56,131 @@ public class IdxLoadBalancer extends StochasticLoadBalancer {
 		super.setMasterServices(master);
 	}
 	
-//	
-//	@Override
-//	public List<RegionPlan> balanceCluster(Map<ServerName, List<HRegionInfo>> clusterState) {
-//		// TODO Auto-generated method stub
-//		LOG.info("Start balanceCluster");
-//		synchronized (this.regionLocation) {
-//			Map<ServerName, List<HRegionInfo>> userClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
-//			Map<ServerName, List<HRegionInfo>> indexClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
-//			boolean balanceByTable = true;
-//			String tableName = null;
-//
-//			if (balanceByTable) {
-//				// Check and modify the regionLocation map based on values of
-//				// cluster state because we will
-//				// call balancer only when the cluster is in stable state and
-//				// reliable.
-//				Map<HRegionInfo, ServerName> regionMap = null;
-//				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
-//					ServerName serverName = serverVsRegionList.getKey();
-//					List<HRegionInfo> regionInfoList = serverVsRegionList.getValue();
-//					if (regionInfoList.isEmpty()) {
-//						continue;
-//					}
-//					// Just get the table name from any one of the values in the
-//					// regioninfo list
-//					if (tableName == null) {
-//						tableName = regionInfoList.get(0).getTable().getNameAsString();
-//						regionMap = this.regionLocation.get(tableName);
-//					}
-//					if (regionMap != null) {
-//						for (HRegionInfo regionInfo : regionInfoList) {
-//							updateServer(regionMap, serverName, regionInfo);
-//						}
-//					}
-//				}
-//			} else {
-//				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
-//					ServerName serverName = serverVsRegionList.getKey();
-//					List<HRegionInfo> regionsInfoList = serverVsRegionList.getValue();
-//					List<HRegionInfo> idxRegionsToBeMoved = new ArrayList<HRegionInfo>();
-//					List<HRegionInfo> uRegionsToBeMoved = new ArrayList<HRegionInfo>();
-//					for (HRegionInfo regionInfo : regionsInfoList) {
-//						if (regionInfo.isMetaRegion() || regionInfo.isSystemTable()) {
-//							continue;
-//						}
-//						tableName = regionInfo.getTable().getNameAsString();
-//						// table name may change every time thats why always
-//						// need to get table entries.
-//						Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
-//						if (regionMap != null) {
-//							updateServer(regionMap, serverName, regionInfo);
-//						}
-//						if (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
-//							idxRegionsToBeMoved.add(regionInfo);
-//							continue;
-//						}
-//						uRegionsToBeMoved.add(regionInfo);
-//					}
-//					// there may be dummy entries here if assignments by table
-//					// is set
-//					userClusterState.put(serverName, uRegionsToBeMoved);
-//					indexClusterState.put(serverName, idxRegionsToBeMoved);
-//				}
-//			}
-//			/*
-//			 * In case of table wise balancing if balanceCluster called for
-//			 * index table then no user regions available. At that time skip
-//			 * default balancecluster call and get region plan from region
-//			 * location map if exist.
-//			 */
-//			// TODO : Needs refactoring here
-//			List<RegionPlan> regionPlanList = null;
-//
-//			if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == false) {
-//				regionPlanList = super.balanceCluster(clusterState);
-//				
-//				// regionPlanList is null means skipping balancing.
-//				if (regionPlanList == null) {
-//					return null;
-//				} else {
-//					saveRegionPlanList(regionPlanList);
-//					return regionPlanList;
-//				}
-//			} else if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == true) {
-//				regionPlanList = new ArrayList<RegionPlan>(1);
-//				String actualTableName = TableUtils.extractTableName(tableName);
-//				Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
-//				// no previous region plan for user table.
-//				if (regionMap == null) {
-//					return null;
-//				}
-//				for (Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
-//					regionPlanList.add(new RegionPlan(entry.getKey(), null, entry.getValue()));
-//				}
-//				// for preparing the index plan
-//				List<RegionPlan> indexPlanList = new ArrayList<RegionPlan>(1);
-//				// copy of region plan to iterate.
-//				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(regionPlanList);
-//				return prepareIndexPlan(clusterState, indexPlanList, regionPlanListCopy);
-//			} else {
-//				regionPlanList = super.balanceCluster(userClusterState);
-//				
-//				if (regionPlanList == null) {
-//					regionPlanList = new ArrayList<RegionPlan>(1);
-//				} else {
-//					saveRegionPlanList(regionPlanList);
-//				}
-//				List<RegionPlan> userRegionPlans = new ArrayList<RegionPlan>(1);
-//
-//				for (Entry<String, Map<HRegionInfo, ServerName>> tableVsRegions : this.regionLocation.entrySet()) {
-//					Map<HRegionInfo, ServerName> regionMap = regionLocation.get(tableVsRegions.getKey());
-//					// no previous region plan for user table.
-//					if (regionMap == null) {
-//					} else {
-//						for (Entry<HRegionInfo, ServerName> e : regionMap.entrySet()) {
-//							userRegionPlans.add(new RegionPlan(e.getKey(), null, e.getValue()));
-//						}
-//					}
-//				}
-//
-//				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(userRegionPlans);
-//				return prepareIndexPlan(indexClusterState, regionPlanList, regionPlanListCopy);
-//			}
-//		}
-//	}
+	
+	@Override
+	public List<RegionPlan> balanceCluster(Map<ServerName, List<HRegionInfo>> clusterState) {
+		// TODO Auto-generated method stub
+		LOG.info("Start balanceCluster");
+		synchronized (this.regionLocation) {
+			Map<ServerName, List<HRegionInfo>> userClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
+			Map<ServerName, List<HRegionInfo>> indexClusterState = new HashMap<ServerName, List<HRegionInfo>>(1);
+			boolean balanceByTable = true;
+			String tableName = null;
+
+			if (balanceByTable) {
+				// Check and modify the regionLocation map based on values of
+				// cluster state because we will
+				// call balancer only when the cluster is in stable state and
+				// reliable.
+				Map<HRegionInfo, ServerName> regionMap = null;
+				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
+					ServerName serverName = serverVsRegionList.getKey();
+					List<HRegionInfo> regionInfoList = serverVsRegionList.getValue();
+					if (regionInfoList.isEmpty()) {
+						continue;
+					}
+					// Just get the table name from any one of the values in the
+					// regioninfo list
+					if (tableName == null) {
+						tableName = regionInfoList.get(0).getTable().getNameAsString();
+						regionMap = this.regionLocation.get(tableName);
+					}
+					if (regionMap != null) {
+						for (HRegionInfo regionInfo : regionInfoList) {
+							updateServer(regionMap, serverName, regionInfo);
+						}
+					}
+				}
+			} else {
+				for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : clusterState.entrySet()) {
+					ServerName serverName = serverVsRegionList.getKey();
+					List<HRegionInfo> regionsInfoList = serverVsRegionList.getValue();
+					List<HRegionInfo> idxRegionsToBeMoved = new ArrayList<HRegionInfo>();
+					List<HRegionInfo> uRegionsToBeMoved = new ArrayList<HRegionInfo>();
+					for (HRegionInfo regionInfo : regionsInfoList) {
+						if (regionInfo.isMetaRegion() || regionInfo.isSystemTable()) {
+							continue;
+						}
+						tableName = regionInfo.getTable().getNameAsString();
+						// table name may change every time thats why always
+						// need to get table entries.
+						Map<HRegionInfo, ServerName> regionMap = this.regionLocation.get(tableName);
+						if (regionMap != null) {
+							updateServer(regionMap, serverName, regionInfo);
+						}
+						if (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) {
+							idxRegionsToBeMoved.add(regionInfo);
+							continue;
+						}
+						uRegionsToBeMoved.add(regionInfo);
+					}
+					// there may be dummy entries here if assignments by table
+					// is set
+					userClusterState.put(serverName, uRegionsToBeMoved);
+					indexClusterState.put(serverName, idxRegionsToBeMoved);
+				}
+			}
+			/*
+			 * In case of table wise balancing if balanceCluster called for
+			 * index table then no user regions available. At that time skip
+			 * default balancecluster call and get region plan from region
+			 * location map if exist.
+			 */
+			// TODO : Needs refactoring here
+			List<RegionPlan> regionPlanList = null;
+
+			if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == false) {
+				regionPlanList = super.balanceCluster(clusterState);
+				
+				// regionPlanList is null means skipping balancing.
+				if (regionPlanList == null) {
+					return null;
+				} else {
+					saveRegionPlanList(regionPlanList);
+					return regionPlanList;
+				}
+			} else if (balanceByTable && (tableName.endsWith(IdxConstants.IDX_TABLE_SUFFIX)) == true) {
+				regionPlanList = new ArrayList<RegionPlan>(1);
+				String actualTableName = TableUtils.extractTableName(tableName);
+				Map<HRegionInfo, ServerName> regionMap = regionLocation.get(actualTableName);
+				// no previous region plan for user table.
+				if (regionMap == null) {
+					return null;
+				}
+				for (Entry<HRegionInfo, ServerName> entry : regionMap.entrySet()) {
+					regionPlanList.add(new RegionPlan(entry.getKey(), null, entry.getValue()));
+				}
+				// for preparing the index plan
+				List<RegionPlan> indexPlanList = new ArrayList<RegionPlan>(1);
+				// copy of region plan to iterate.
+				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(regionPlanList);
+				return prepareIndexPlan(clusterState, indexPlanList, regionPlanListCopy);
+			} else {
+				regionPlanList = super.balanceCluster(userClusterState);
+				
+				if (regionPlanList == null) {
+					regionPlanList = new ArrayList<RegionPlan>(1);
+				} else {
+					saveRegionPlanList(regionPlanList);
+				}
+				List<RegionPlan> userRegionPlans = new ArrayList<RegionPlan>(1);
+
+				for (Entry<String, Map<HRegionInfo, ServerName>> tableVsRegions : this.regionLocation.entrySet()) {
+					Map<HRegionInfo, ServerName> regionMap = regionLocation.get(tableVsRegions.getKey());
+					// no previous region plan for user table.
+					if (regionMap == null) {
+					} else {
+						for (Entry<HRegionInfo, ServerName> e : regionMap.entrySet()) {
+							userRegionPlans.add(new RegionPlan(e.getKey(), null, e.getValue()));
+						}
+					}
+				}
+
+				List<RegionPlan> regionPlanListCopy = new ArrayList<RegionPlan>(userRegionPlans);
+				return prepareIndexPlan(indexClusterState, regionPlanList, regionPlanListCopy);
+			}
+		}
+	}
 	
 	@Override
 	public ServerName randomAssignment(HRegionInfo regionInfo, List<ServerName> servers) {
@@ -272,6 +272,58 @@ public class IdxLoadBalancer extends StochasticLoadBalancer {
 	 */
 
 	// Creates the index region plan based on the corresponding user region plan
+//	private List<RegionPlan> prepareIndexPlan(Map<ServerName, List<HRegionInfo>> indexClusterState,
+//			List<RegionPlan> regionPlanList, List<RegionPlan> regionPlanListCopy) {
+//
+//		for (RegionPlan regionPlan : regionPlanListCopy) {
+//			HRegionInfo regionInfo = regionPlan.getRegionInfo();
+//
+//			for (Entry<ServerName, List<HRegionInfo>> serverVsRegionList : indexClusterState.entrySet()) {
+//				List<HRegionInfo> indexRegions = serverVsRegionList.getValue();
+//				ServerName server = serverVsRegionList.getKey();
+//				if (regionPlan.getDestination().equals(server)) {
+//					// desination server in the region plan is new and should
+//					// not be same with this
+//					// server in index cluster state.thats why skipping regions
+//					// check in this server
+//					continue;
+//				}
+//				String actualTableName = null;
+//
+//				boolean isExist = false;
+//				HRegionInfo indexRegionInfo = null;
+//				for (int i = 0; i < indexRegions.size(); i++) {
+//					indexRegionInfo = indexRegions.get(i);
+//					String indexTableName = indexRegionInfo.getTable().getNameAsString();
+//					actualTableName = TableUtils.extractTableName(indexTableName);
+//					if (regionInfo.getTable().getNameAsString().equals(actualTableName) == false) {
+//						continue;
+//					}
+//					if (Bytes.compareTo(regionInfo.getStartKey(), indexRegionInfo.getStartKey()) != 0) {
+//						continue;
+//					}
+//					isExist = true;
+//					break;
+//				}
+//				if (isExist) {
+//					RegionPlan rp = new RegionPlan(indexRegionInfo, server, regionPlan.getDestination());
+//
+//					putRegionPlan(indexRegionInfo, regionPlan.getDestination());
+//					regionPlanList.add(rp);
+//				}
+//				continue;
+//			}
+//		}
+//		for (RegionPlan plan : regionPlanList) {
+//
+//		}
+//		regionPlanListCopy.clear();
+//		// if no user regions to balance then return newly formed index region
+//		// plan.
+//
+//		return regionPlanList;
+//	}
+	
 	private List<RegionPlan> prepareIndexPlan(Map<ServerName, List<HRegionInfo>> indexClusterState,
 			List<RegionPlan> regionPlanList, List<RegionPlan> regionPlanListCopy) {
 
