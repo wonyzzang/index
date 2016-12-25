@@ -9,7 +9,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -20,12 +19,13 @@ import org.apache.hadoop.hbase.mapreduce.TableOutputFormat;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
+
+// for Practice
 public class ImportFromFile {
 	
 	public static final String NAME = "ImportFromFile";
@@ -34,12 +34,15 @@ public class ImportFromFile {
 	static class ImportMapper extends Mapper<LongWritable, Text, ImmutableBytesWritable, Put>{
 		
 		private Random rand = new Random();
+		private byte[] tableName = null;
 		private byte[] family = null;
 		private byte[] qualifier = null;
 		
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException{
 			String column = context.getConfiguration().get("conf.column");
+			String table = context.getConfiguration().get("conf.tableName");
+			tableName = Bytes.toBytes(table);
 			byte[][] colkey = KeyValue.parseColumn(Bytes.toBytes(column));
 			family = colkey[0];
 			if(colkey.length>1){
@@ -54,7 +57,7 @@ public class ImportFromFile {
 				byte[] rowkey = Bytes.toBytes(rand.nextInt(10000));
 				Put put = new Put(rowkey);
 				put.add(family, qualifier, rowkey);
-				context.write(new ImmutableBytesWritable(rowkey), put);
+				context.write(new ImmutableBytesWritable(tableName), put);
 				
 				context.getCounter(Counters.LINES).increment(1);
 			}catch(Exception e){
@@ -90,7 +93,7 @@ public class ImportFromFile {
 		
 		return cmd;
 	}
-	
+	/*
 	public static void main(String[] args) throws Exception{
 		Configuration conf = HBaseConfiguration.create();
 		String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
@@ -99,16 +102,17 @@ public class ImportFromFile {
 		String input = cmd.getOptionValue("i");
 		String column = cmd.getOptionValue("c");
 		conf.set("conf.column", column);
+		conf.set("conf.tableName", table);
 		Job job = new Job(conf, "import file");
 		job.setJarByClass(ImportFromFile.class);
 		job.setMapperClass(ImportMapper.class);
 		job.setOutputFormatClass(TableOutputFormat.class);
 		job.getConfiguration().set(TableOutputFormat.OUTPUT_TABLE, table);
-		job.setOutputKeyClass(ImmutableBytesWritable.class);
-		job.setOutputValueClass(Put.class);
+		//job.setOutputKeyClass(ImmutableBytesWritable.class);
+		//job.setOutputValueClass(Put.class);
 		job.setNumReduceTasks(0);
 		FileInputFormat.addInputPath(job, new Path(input));
 	
 		System.exit(job.waitForCompletion(true) ? 0 : 1);
-	}
+	}*/
 }

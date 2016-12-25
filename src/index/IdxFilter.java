@@ -51,6 +51,8 @@ public class IdxFilter extends FilterBase {
 		byte[] rowkey = Bytes.copy(buffer, offset, length);
 		
 		//LOG.info("buffer is : "+Bytes.toString(rowkey));
+		byte[] carNum = Bytes.copy(rowkey, 0, 9);
+		byte[] time = Bytes.copy(rowkey, 10, 8);
 		String rowKey = Bytes.toString(rowkey);
 		byte[] query = Bytes.add(Bytes.toBytes("idx"),this.qualNum,this.value);
 		query = Bytes.add(query, Bytes.toBytes("2v"));

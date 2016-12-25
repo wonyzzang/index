@@ -72,51 +72,51 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public KeyValueScanner preStoreScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store,
 			Scan scan, NavigableSet<byte[]> targetCols, KeyValueScanner s) throws IOException {
 
-		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
-		String tableName = tName.getNameAsString();
-		
-		LOG.info("preStoreScannerOpen START : " + tableName);
-
-		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
-		if (isUserTable) {
-			Filter f = scan.getFilter();
-			boolean isIndexFilter = (f instanceof IdxFilter);
-			//boolean isValueFilter = true;
-
-			if (f != null && isIndexFilter) {
-				String idxTableName = TableUtils.getIndexTableName(tableName);
-				TableName idxTName = TableName.valueOf(idxTableName);
-
-				List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
-				Region idxRegion = idxRegions.get(0);
-
-				//LOG.info("filter string : " + f.toString());
-				//Filter indFilter;
-				//Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
-
-				//LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
-
-				Scan indScan = new Scan();
-				indScan.setStartRow(Bytes.toBytes("idx1v1"));
-				indScan.setStopRow(Bytes.toBytes("idx1v2"));
-				//indScan.setFilter(indFilter);
-				Map<byte[], NavigableSet<byte[]>> map = indScan.getFamilyMap();
-				NavigableSet<byte[]> indCols = map.get(Bytes.toBytes("IND"));
-				Store indStore = idxRegion.getStore(Bytes.toBytes("IND"));
-				ScanInfo scanInfo = null;
-				scanInfo = indStore.getScanInfo();
-				long ttl = scanInfo.getTtl();
-				
-				//LOG.info("filter string : " + indScan.getFilter().toString());
-
-				scanInfo = new ScanInfo(scanInfo.getConfiguration(), indStore.getFamily(), ttl,
-						scanInfo.getTimeToPurgeDeletes(), scanInfo.getComparator());
-				LOG.info("well done");
-				ctx.complete();
-				return new StoreScanner(indStore, scanInfo, indScan, indCols,
-						((HStore) indStore).getHRegion().getReadpoint(IsolationLevel.READ_COMMITTED));
-			}
-		}
+//		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+//		String tableName = tName.getNameAsString();
+//		
+//		LOG.info("preStoreScannerOpen START : " + tableName);
+//
+//		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+//		if (isUserTable) {
+//			Filter f = scan.getFilter();
+//			boolean isIndexFilter = (f instanceof IdxFilter);
+//			//boolean isValueFilter = true;
+//
+//			if (f != null && isIndexFilter) {
+//				String idxTableName = TableUtils.getIndexTableName(tableName);
+//				TableName idxTName = TableName.valueOf(idxTableName);
+//
+//				List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
+//				Region idxRegion = idxRegions.get(0);
+//
+//				//LOG.info("filter string : " + f.toString());
+//				//Filter indFilter;
+//				//Filter indFilter = new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("idx1v1row1")));
+//
+//				//LOG.info("preStoreScannerOpen User table : " + tableName + " & " + idxTableName);
+//
+//				Scan indScan = new Scan();
+//				indScan.setStartRow(Bytes.toBytes("idx1v1"));
+//				indScan.setStopRow(Bytes.toBytes("idx1v2"));
+//				//indScan.setFilter(indFilter);
+//				Map<byte[], NavigableSet<byte[]>> map = indScan.getFamilyMap();
+//				NavigableSet<byte[]> indCols = map.get(Bytes.toBytes("IND"));
+//				Store indStore = idxRegion.getStore(Bytes.toBytes("IND"));
+//				ScanInfo scanInfo = null;
+//				scanInfo = indStore.getScanInfo();
+//				long ttl = scanInfo.getTtl();
+//				
+//				//LOG.info("filter string : " + indScan.getFilter().toString());
+//
+//				scanInfo = new ScanInfo(scanInfo.getConfiguration(), indStore.getFamily(), ttl,
+//						scanInfo.getTimeToPurgeDeletes(), scanInfo.getComparator());
+//				LOG.info("well done");
+//				ctx.complete();
+//				return new StoreScanner(indStore, scanInfo, indScan, indCols,
+//						((HStore) indStore).getHRegion().getReadpoint(IsolationLevel.READ_COMMITTED));
+//			}
+//		}
 		return s;
 	}
 
@@ -132,61 +132,61 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	@Override
 	public void prePut(ObserverContext<RegionCoprocessorEnvironment> ctx, Put put, WALEdit edit, Durability durability)
 			throws IOException {
-
-		// get table's information
-		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
-		String tableName = tName.getNameAsString();
-
-		LOG.info("PrePut START : " + tableName);
-
-		// if table is not user table, it is not performed
-		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
-		if (isUserTable) {
-			String idxTableName = TableUtils.getIndexTableName(tableName);
-			TableName idxTName = TableName.valueOf(idxTableName);
-
-			// get index column
-			List<IdxColumnQualifier> idxColumns = indexManager.getIndexOfTable(tableName);
-//			for (IdxColumnQualifier cq : idxColumns) {
-//				LOG.info("index column : " + cq.getQualifierName());
+//
+//		// get table's information
+//		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+//		String tableName = tName.getNameAsString();
+//
+//		LOG.info("PrePut START : " + tableName);
+//
+//		// if table is not user table, it is not performed
+//		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+//		if (isUserTable) {
+//			String idxTableName = TableUtils.getIndexTableName(tableName);
+//			TableName idxTName = TableName.valueOf(idxTableName);
+//
+//			// get index column
+//			List<IdxColumnQualifier> idxColumns = indexManager.getIndexOfTable(tableName);
+////			for (IdxColumnQualifier cq : idxColumns) {
+////				LOG.info("index column : " + cq.getQualifierName());
+////			}
+//			
+//			// get region
+//			HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
+//			Region region = ctx.getEnvironment().getRegion();
+//
+//			// get information of put
+//			Map<byte[], List<Cell>> map = put.getFamilyCellMap();
+//			List<Cell> list = map.get(Bytes.toBytes("cf1"));
+//
+//			/*
+//			 * index table rowkey = region start key + "idx" + all(qualifier
+//			 * number + value)
+//			 */
+//
+//			// get region start keys
+//			String startKey = Bytes.toString(hRegionInfo.getStartKey());
+//			String rowKey = startKey + "idx";
+//
+//			// get column value, id,
+//			for (Cell c : list) {
+//				String qual = Bytes.toString(CellUtil.cloneQualifier(c));
+//				qual = qual.substring(1);
+//				qual += Bytes.toString(CellUtil.cloneValue(c));
+//				rowKey += qual;
 //			}
-			
-			// get region
-			HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
-			Region region = ctx.getEnvironment().getRegion();
-
-			// get information of put
-			Map<byte[], List<Cell>> map = put.getFamilyCellMap();
-			List<Cell> list = map.get(Bytes.toBytes("cf1"));
-
-			/*
-			 * index table rowkey = region start key + "idx" + all(qualifier
-			 * number + value)
-			 */
-
-			// get region start keys
-			String startKey = Bytes.toString(hRegionInfo.getStartKey());
-			String rowKey = startKey + "idx";
-
-			// get column value, id,
-			for (Cell c : list) {
-				String qual = Bytes.toString(CellUtil.cloneQualifier(c));
-				qual = qual.substring(1);
-				qual += Bytes.toString(CellUtil.cloneValue(c));
-				rowKey += qual;
-			}
-			rowKey += Bytes.toString(put.getRow());
-			//LOG.info("Row Key is " + rowKey);
-
-			// make put for index table
-			Put idxPut = new Put(Bytes.toBytes(rowKey));
-			idxPut.addColumn(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, IdxConstants.IDX_VALUE);
-
-			// index table and put
-			List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
-			Region idxRegion = idxRegions.get(0);
-			idxRegion.put(idxPut);
-		}
+//			rowKey += Bytes.toString(put.getRow());
+//			//LOG.info("Row Key is " + rowKey);
+//
+//			// make put for index table
+//			Put idxPut = new Put(Bytes.toBytes(rowKey));
+//			idxPut.addColumn(IdxConstants.IDX_FAMILY, IdxConstants.IDX_QUALIFIER, IdxConstants.IDX_VALUE);
+//
+//			// index table and put
+//			List<Region> idxRegions = ctx.getEnvironment().getRegionServerServices().getOnlineRegions(idxTName);
+//			Region idxRegion = idxRegions.get(0);
+//			idxRegion.put(idxPut);
+//		}
 
 		//LOG.info("PrePut END : " + tableName);
 	}
