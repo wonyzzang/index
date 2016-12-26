@@ -16,7 +16,7 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.regionserver.ScannerContext;
 
-import index.SingleColumnSearchFilter;
+import index.CarNumFilter;
 
 public class IndexRegionScanner implements RegionScanner {
 	private static final Log LOG = LogFactory.getLog(IndexRegionScanner.class);
