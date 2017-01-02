@@ -7,8 +7,13 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.BinaryComparator;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.ValueFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
@@ -18,6 +23,8 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+import index.CarNumFilter;
 
 public class QueryProcess {
 
@@ -69,8 +76,12 @@ public class QueryProcess {
 	}
 
 	public static void main(String[] args) throws Exception {
-		Scan scan = new Scan();
 		Configuration conf = HBaseConfiguration.create();
+		Scan scan = new Scan();
+		Filter f = new CarNumFilter(Bytes.toBytes("13오7911"));
+		//Filter f1 = new ValueFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("137911")));
+		scan.setFilter(f);
+		
 
 		Job job = new Job(conf, "import file");
 		job.setJarByClass(QueryProcess.class);

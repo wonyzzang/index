@@ -113,5 +113,7 @@
 	<classpathentry kind="lib" path="/media/sw/IntMain/Git/repo/lib/apacheds-i18n-2.0.0-M15.jar"/>
 	<classpathentry kind="lib" path="/media/sw/IntMain/Git/repo/lib/aopalliance-1.0.jar"/>
 	<classpathentry kind="lib" path="/media/sw/IntMain/Git/repo/lib/activation-1.1.jar"/>
+	<classpathentry kind="lib" path="/media/sw/IntMain/Git/repo/rtreelib/jsi-1.0.0.jar"/>
+	<classpathentry kind="lib" path="/media/sw/IntMain/Git/repo/rtreelib/trove4j-2.0.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
