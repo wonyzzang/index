@@ -1,4 +1,4 @@
-package index;
+package ac.ku.milab.hbaseindex;
 
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package coprocessor.master;
+package ac.ku.milab.hbaseindex.coprocessor.master;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -21,11 +21,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.hbck.TableLockChecker;
 import org.apache.hadoop.hbase.zookeeper.ZKTableStateManager;
 
-import index.IdxColumnQualifier;
-import index.IdxManager;
-import util.IdxConstants;
-import util.TableUtils;
-import util.ValueType;
+import ac.ku.milab.hbaseindex.IdxManager;
 
 public class IndexMasterObserver extends BaseMasterObserver {
 

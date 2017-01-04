@@ -1,4 +1,4 @@
-package index;
+package ac.ku.milab.hbaseindex;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -7,7 +7,7 @@ import java.io.IOException;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableComparable;
 
-import util.ValueType;
+import ac.ku.milab.hbaseindex.util.ValueType;
 
 /* This class is for index column qualifier */
 public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier>{
@@ -60,19 +60,16 @@ public class IdxColumnQualifier implements WritableComparable<IdxColumnQualifier
 		return this.valueType;
 	}
 
-	@Override
 	public void readFields(DataInput in) throws IOException {
 		this.qualifierName = in.readLine();
 		this.valueType = ValueType.convert2Enum(in.readInt());
 	}
 
-	@Override
 	public void write(DataOutput out) throws IOException {
 		Bytes.writeByteArray(out, Bytes.toBytes(this.qualifierName));
 		out.writeInt(this.valueType.convert2Int());
 	}
 
-	@Override
 	public int compareTo(IdxColumnQualifier iq) {
 		int result=0;
 		if(this.valueType!=iq.valueType){

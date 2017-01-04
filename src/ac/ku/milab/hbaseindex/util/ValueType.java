@@ -1,4 +1,4 @@
-package util;
+package ac.ku.milab.hbaseindex.util;
 
 public enum ValueType {
 	String, Int, Float, Long, Double, Short, Byte, Char;

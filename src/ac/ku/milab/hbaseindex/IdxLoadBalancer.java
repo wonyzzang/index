@@ -1,4 +1,4 @@
-package index;
+package ac.ku.milab.hbaseindex;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,8 +22,8 @@ import org.apache.hadoop.hbase.master.balancer.BaseLoadBalancer;
 import org.apache.hadoop.hbase.master.balancer.StochasticLoadBalancer;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import util.IdxConstants;
-import util.TableUtils;
+import ac.ku.milab.hbaseindex.util.IdxConstants;
+import ac.ku.milab.hbaseindex.util.TableUtils;
 
 public class IdxLoadBalancer extends StochasticLoadBalancer {
 	

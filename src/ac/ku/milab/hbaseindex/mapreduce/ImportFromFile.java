@@ -1,4 +1,4 @@
-package mapreduce;
+package ac.ku.milab.hbaseindex.mapreduce;
 
 import java.io.IOException;
 import java.util.Random;

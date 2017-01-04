@@ -1,4 +1,4 @@
-package mapreduce;
+package ac.ku.milab.hbaseindex.mapreduce;
 
 import java.io.IOException;
 
@@ -23,8 +23,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
-import index.CarNumFilter;
 
 public class QueryProcess {
 
@@ -78,9 +76,9 @@ public class QueryProcess {
 	public static void main(String[] args) throws Exception {
 		Configuration conf = HBaseConfiguration.create();
 		Scan scan = new Scan();
-		Filter f = new CarNumFilter(Bytes.toBytes("13오7911"));
+		//Filter f = new CarNumFilter(Bytes.toBytes("13오7911"));
 		//Filter f1 = new ValueFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("137911")));
-		scan.setFilter(f);
+		//scan.setFilter(f);
 		
 
 		Job job = new Job(conf, "import file");

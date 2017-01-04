@@ -1,4 +1,4 @@
-package coprocessor.scanner;
+package ac.ku.milab.hbaseindex.coprocessor.scanner;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,41 +27,31 @@ public class SeekAndReadRegionScanner implements RegionScanner {
 		this.startRow = startRow;
 	}
 	
-
-	@Override
 	public void close() throws IOException {
 		this.scanner.close();
 		this.isClosed = true;
 	}
 
-	@Override
 	public long getMvccReadPoint() {
 		return 0;
 	}
 
-	@Override
 	public HRegionInfo getRegionInfo() {
 		return this.scanner.getRegionInfo();
 	}
 
-	@Override
 	public boolean isFilterDone() {
 		return this.scanner.isFilterDone();
 	}
 
-	@Override
 	public boolean reseek(byte[] row) throws IOException {
 		return this.scanner.reseek(row);
 	}
 
-
-	@Override
 	public boolean next(List<Cell> list) throws IOException {
 		return false;
 	}
 
-
-	@Override
 	public boolean next(List<Cell> list, ScannerContext ctx) throws IOException {
 		boolean hasNext = false;
 		if(this.scanner.isClosed()){
@@ -73,26 +63,18 @@ public class SeekAndReadRegionScanner implements RegionScanner {
 	   return hasNext;
 	}
 
-
-	@Override
 	public int getBatch() {
 		return 0;
 	}
 
-
-	@Override
 	public long getMaxResultSize() {
 		return 0;
 	}
 
-
-	@Override
 	public boolean nextRaw(List<Cell> list) throws IOException {
 		return false;
 	}
 
-
-	@Override
 	public boolean nextRaw(List<Cell> list, ScannerContext ctx) throws IOException {
 		return false;
 	}

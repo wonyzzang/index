@@ -1,4 +1,4 @@
-package index;
+package ac.ku.milab.hbaseindex;
 
 import java.io.IOException;
 
@@ -10,8 +10,6 @@ import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.filter.Filter.ReturnCode;
 import org.apache.hadoop.hbase.util.Bytes;
-
-import coprocessor.regionserver.IndexRegionObserver;
 
 public class IdxFilter extends FilterBase {
 	

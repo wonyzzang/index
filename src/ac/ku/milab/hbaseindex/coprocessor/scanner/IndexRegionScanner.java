@@ -1,4 +1,4 @@
-package coprocessor.scanner;
+package ac.ku.milab.hbaseindex.coprocessor.scanner;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,8 +15,6 @@ import org.apache.hadoop.hbase.filter.ValueFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.regionserver.ScannerContext;
-
-import index.CarNumFilter;
 
 public class IndexRegionScanner implements RegionScanner {
 	private static final Log LOG = LogFactory.getLog(IndexRegionScanner.class);
@@ -41,25 +39,21 @@ public class IndexRegionScanner implements RegionScanner {
 
 		LOG.info("IndexRegionScanner Open");
 	}
-
-	@Override
+	
 	public void close() throws IOException {
 		tableScanner.close();
 		indexScanner.close();
 		isClosed = true;
 	}
 
-	@Override
 	public long getMvccReadPoint() {
 		return indexScanner.getMvccReadPoint();
 	}
 
-	@Override
 	public HRegionInfo getRegionInfo() {
 		return indexScanner.getRegionInfo();
 	}
 
-	@Override
 	public boolean isFilterDone() {
 		try {
 			return indexScanner.isFilterDone();
@@ -69,7 +63,6 @@ public class IndexRegionScanner implements RegionScanner {
 		}
 	}
 
-	@Override
 	public boolean reseek(byte[] row) throws IOException {
 		if (!hasMore) {
 			return false;
@@ -90,7 +83,6 @@ public class IndexRegionScanner implements RegionScanner {
 	}
 
 	// check if more rows exist after this row
-	@Override
 	public boolean next(List<Cell> list) throws IOException {
 		if (!this.hasMore) {
 			return false;
@@ -114,27 +106,22 @@ public class IndexRegionScanner implements RegionScanner {
 		return tmpHasMore;
 	}
 
-	@Override
 	public boolean next(List<Cell> list, ScannerContext ctx) throws IOException {
 		return indexScanner.next(list, ctx);
 	}
 
-	@Override
 	public int getBatch() {
 		return 0;
 	}
 
-	@Override
 	public long getMaxResultSize() {
 		return 0;
 	}
 
-	@Override
 	public boolean nextRaw(List<Cell> list) throws IOException {
 		return indexScanner.nextRaw(list);
 	}
 
-	@Override
 	public boolean nextRaw(List<Cell> list, ScannerContext ctx) throws IOException {
 		return indexScanner.nextRaw(list, ctx);
 	}

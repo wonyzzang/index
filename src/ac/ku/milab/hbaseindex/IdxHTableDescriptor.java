@@ -1,4 +1,4 @@
-package index;
+package ac.ku.milab.hbaseindex;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -10,8 +10,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HTableDescriptor;
 
-import util.IdxConstants;
-import util.ValueType;
+import ac.ku.milab.hbaseindex.util.IdxConstants;
+import ac.ku.milab.hbaseindex.util.ValueType;
 
 /* This class is for htable descriptor of index table */
 public class IdxHTableDescriptor extends HTableDescriptor {

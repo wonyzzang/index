@@ -1,4 +1,4 @@
-package util;
+package ac.ku.milab.hbaseindex.util;
 
 import org.apache.hadoop.hbase.util.Bytes;
 

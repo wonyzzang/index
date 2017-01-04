@@ -1,5 +1,4 @@
-package util;
-
+package ac.ku.milab.hbaseindex.util;
 import java.util.Collection;
 
 import org.apache.hadoop.hbase.HConstants;

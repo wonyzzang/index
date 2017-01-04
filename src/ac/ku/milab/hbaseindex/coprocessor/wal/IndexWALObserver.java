@@ -1,4 +1,4 @@
-package coprocessor.wal;
+package ac.ku.milab.hbaseindex.coprocessor.wal;
 
 import java.io.IOException;
 import java.util.List;
@@ -17,9 +17,10 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.wal.WALKey;
 
-import index.IdxColumnQualifier;
-import index.IdxManager;
-import util.TableUtils;
+import ac.ku.milab.hbaseindex.IdxColumnQualifier;
+import ac.ku.milab.hbaseindex.IdxManager;
+import ac.ku.milab.hbaseindex.util.TableUtils;
+
 
 public class IndexWALObserver extends BaseWALObserver {
 
