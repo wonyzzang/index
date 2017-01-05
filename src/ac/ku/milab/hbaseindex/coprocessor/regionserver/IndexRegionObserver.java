@@ -48,18 +48,22 @@ import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
+import com.github.davidmoten.rtree.Entry;
 import com.github.davidmoten.rtree.RTree;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Geometry;
 
 import ac.ku.milab.hbaseindex.IdxManager;
+import ac.ku.milab.hbaseindex.RTreePoint;
+import ac.ku.milab.hbaseindex.util.TableUtils;
+import rx.Observable;
 
 public class IndexRegionObserver extends BaseRegionObserver {
 
 	private static final Log LOG = LogFactory.getLog(IndexRegionObserver.class.getName());
 
 	// private IdxManager indexManager = IdxManager.getInstance();
-	private static RTree<byte[], Geometry> rTree = RTree.minChildren(3).create();
+	private static RTree<byte[], Geometry> regionRTree = RTree.star().create();
 
 	@Override
 	public void stop(CoprocessorEnvironment e) throws IOException {
@@ -70,6 +74,25 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public KeyValueScanner preStoreScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store,
 			Scan scan, NavigableSet<byte[]> targetCols, KeyValueScanner s) throws IOException {
 
+		// get table's information
+		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+		String tableName = tName.getNameAsString();
+
+		LOG.info("preStoreScannerOpen START : " + tableName);
+
+		// if table is not user table, it is not performed
+		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+		if (isUserTable) {
+			Observable<Entry<byte[], Geometry>> entries = regionRTree.entries();
+			List<Entry<byte[], Geometry>> list = entries.toList().toBlocking().single();
+			LOG.info("number of entry" + list.size());
+			for(Entry<byte[], Geometry> entry : list){
+				RTreePoint rp = (RTreePoint)entry.geometry();
+				LOG.info("Rtree show - "+rp.getLat()+","+rp.getLon());
+			}
+		}
+		
+		LOG.info("preStoreScannerOpen END : " + tableName);
 		// TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
 		// String tableName = tName.getNameAsString();
 		//
@@ -131,42 +154,56 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		LOG.info("PreOpen : " + ctx.getEnvironment().getRegionInfo().getTable().getNameAsString());
 		super.preOpen(ctx);
 	}
+
 	// before put implements, call this function
 	@Override
 	public void prePut(ObserverContext<RegionCoprocessorEnvironment> ctx, Put put, WALEdit edit, Durability durability)
 			throws IOException {
 
-//		Map<byte[], List<Cell>> map = put.getFamilyCellMap();
-//		List<Cell> list = map.get(Bytes.toBytes("cf1"));
-//		
-//		boolean isLat = false;
-//		boolean isLon = false;
-//		
-//		double lat = 0, lon = 0;
-//
-//		for (Cell c : list) {
-//			byte[] qual = CellUtil.cloneQualifier(c);
-//			if(isLat==false && Bytes.equals(qual, Bytes.toBytes("lat"))){
-//				lat = Bytes.toDouble(CellUtil.cloneValue(c));
-//				isLat = true;
-//			}else if(isLon==false && Bytes.equals(qual, Bytes.toBytes("lon"))){
-//				lon = Bytes.toDouble(CellUtil.cloneValue(c));
-//				isLon = true;
-//			}
-//			if(isLat&&isLon){
-//				break;
-//			}
-//		}
-//		
-//		if(!isLat || !isLon){
-//			LOG.error("not enough arguments");
-//			return;
-//		}
-//		
-//		byte[] rowKey = put.getRow();
-//		rTree.add(rowKey, Geometries.point(lat, lon));
-//		LOG.info("Rtree add : " + "lat-"+lat+" lon-" + lon);
+		// get table's information
+		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+		String tableName = tName.getNameAsString();
 
+		LOG.info("PrePut START : " + tableName);
+
+		// if table is not user table, it is not performed
+		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+		if (isUserTable) {
+			String idxTableName = TableUtils.getIndexTableName(tableName);
+			// TableName idxTName = TableName.valueOf(idxTableName);
+
+			Map<byte[], List<Cell>> map = put.getFamilyCellMap();
+			List<Cell> list = map.get(Bytes.toBytes("cf1"));
+
+			boolean isLat = false;
+			boolean isLon = false;
+
+			double lat = 0, lon = 0;
+
+			for (Cell c : list) {
+				byte[] qual = CellUtil.cloneQualifier(c);
+				if (isLat == false && Bytes.equals(qual, Bytes.toBytes("lat"))) {
+					lat = Bytes.toDouble(CellUtil.cloneValue(c));
+					isLat = true;
+				} else if (isLon == false && Bytes.equals(qual, Bytes.toBytes("lon"))) {
+					lon = Bytes.toDouble(CellUtil.cloneValue(c));
+					isLon = true;
+				}
+				if (isLat && isLon) {
+					break;
+				}
+			}
+
+			if (!isLat || !isLon) {
+				LOG.error("not enough arguments");
+				return;
+			}
+
+			byte[] rowKey = put.getRow();
+			RTreePoint rp = RTreePoint.create((float)lat, (float)lon);
+			regionRTree = regionRTree.add(rowKey, rp);
+			LOG.info("Rtree add : " + "lat-" + lat + " lon-" + lon);
+		}
 		//
 		// // get table's information
 		// TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
@@ -190,7 +227,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		//
 		// // get region
 		// HRegionInfo hRegionInfo = ctx.getEnvironment().getRegionInfo();
-		// Region region = ctx.getEnvironment().getRegion();
+		// Region region = ctx.getEnvironment().getRegion();at
 		//
 		// // get information of put
 		// Map<byte[], List<Cell>> map = put.getFamilyCellMap();
@@ -205,7 +242,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		// String startKey = Bytes.toString(hRegionInfo.getStartKey());
 		// String rowKey = startKey + "idx";
 		//
-		// // get column value, id,
+		// // get column value, id,at
 		// for (Cell c : list) {
 		// String qual = Bytes.toString(CellUtil.cloneQualifier(c));
 		// qual = qual.substring(1);
