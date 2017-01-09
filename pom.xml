@@ -50,10 +50,10 @@
 			<artifactId>rtree</artifactId>
 			<version>0.8-RC10</version>
 		</dependency>
-		<dependency>
-			<groupId>org.roaringbitmap</groupId>
-			<artifactId>RoaringBitmap</artifactId>
-			<version>[0.6,)</version>
-		</dependency>
+          <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>RoaringBitmap</artifactId>
+            <version>0.6.32</version>
+          </dependency>
 	</dependencies>
 </project>

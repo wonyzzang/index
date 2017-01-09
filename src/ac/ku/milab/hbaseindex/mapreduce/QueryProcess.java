@@ -73,24 +73,24 @@ public class QueryProcess {
 		}
 	}
 
-	public static void main(String[] args) throws Exception {
-		Configuration conf = HBaseConfiguration.create();
-		Scan scan = new Scan();
-		//Filter f = new CarNumFilter(Bytes.toBytes("13오7911"));
-		//Filter f1 = new ValueFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("137911")));
-		//scan.setFilter(f);
-		
-
-		Job job = new Job(conf, "import file");
-		job.setJarByClass(QueryProcess.class);
-		TableMapReduceUtil.initTableMapperJob(tableName, scan, QueryMapper.class, ImmutableBytesWritable.class, DoubleWritable.class,
-				job);
-		job.setReducerClass(QueryReducer.class);
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(DoubleWritable.class);
-		job.setNumReduceTasks(1);
-		FileOutputFormat.setOutputPath(job, new Path("result"));
-
-		System.exit(job.waitForCompletion(true) ? 0 : 1);
-	}
+//	public static void main(String[] args) throws Exception {
+//		Configuration conf = HBaseConfiguration.create();
+//		Scan scan = new Scan();
+//		//Filter f = new CarNumFilter(Bytes.toBytes("13오7911"));
+//		//Filter f1 = new ValueFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes("137911")));
+//		//scan.setFilter(f);
+//		
+//
+//		Job job = new Job(conf, "import file");
+//		job.setJarByClass(QueryProcess.class);
+//		TableMapReduceUtil.initTableMapperJob(tableName, scan, QueryMapper.class, ImmutableBytesWritable.class, DoubleWritable.class,
+//				job);
+//		job.setReducerClass(QueryReducer.class);
+//		job.setOutputKeyClass(Text.class);
+//		job.setOutputValueClass(DoubleWritable.class);
+//		job.setNumReduceTasks(1);
+//		FileOutputFormat.setOutputPath(job, new Path("result"));
+//
+//		System.exit(job.waitForCompletion(true) ? 0 : 1);
+//	}
 }
