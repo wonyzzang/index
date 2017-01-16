@@ -88,6 +88,8 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	private static List<byte[]> memStoreList = new ArrayList<byte[]>();
 	
 	private static byte[] key = null;
+	private static int count = 0;
+	private static int cnt = 0;
 
 	@Override
 	public void stop(CoprocessorEnvironment e) throws IOException {
@@ -103,20 +105,37 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public void postFlush(ObserverContext<RegionCoprocessorEnvironment> e, Store store, StoreFile resultFile)
 			throws IOException {
 		// TODO Auto-generated method stub
+		LOG.info("PostFlush start");
+		byte[] firstKey = resultFile.getFirstKey();
+		key = firstKey;
+		LOG.info("First Key is " + firstKey);
+		HFileScanner scanner = resultFile.getReader().getHFileReader().getScanner(false, false);
+		if(scanner.seekTo()){
+			while(true){
+				Cell c = scanner.getKeyValue();
+				byte[] qualifier = CellUtil.cloneQualifier(c);
+				if(Bytes.equals(qualifier, Bytes.toBytes("car_num"))){
+					byte[] row = CellUtil.cloneRow(c);
+					Iterator<byte[]> iter = memStoreList.iterator();
+					while(iter.hasNext()){
+						byte[] memRow = iter.next();
+						if(Bytes.equals(row, memRow)){
+							LOG.info("memstore to store" + row);
+							memStoreList.remove(memRow);
+							break;
+						}
+					}
+				}
+				if(!scanner.next()){
+					LOG.info("CNT is " + cnt);
+					break;
+				}
+				cnt++;
+			}
+			
+		}
+		
 		super.postFlush(e, store, resultFile);
-	}
-	
-	@Override
-	public InternalScanner preFlush(ObserverContext<RegionCoprocessorEnvironment> e, Store store,
-			InternalScanner scanner) throws IOException {
-		// TODO Auto-generated method stub
-		return super.preFlush(e, store, scanner);
-	}
-	
-	@Override
-	public void preFlush(ObserverContext<RegionCoprocessorEnvironment> e) throws IOException {
-		// TODO Auto-generated method stub
-		//super.preFlush(e);
 	}
 
 	@Override
@@ -173,7 +192,18 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			//LOG.info("Rtree add : " + "num-" + Bytes.toString(rowKey) + "long-" + Bytes.toString(tCarNum) + "lat-" + dLat + " lon-"
 			//		+ dLon);
 			memStoreList.add(rowKey);
+			count++;
+			if(count==100){
+				ctx.getEnvironment().getRegion().flush(true);
+			}
+			
 		}
+	}
+	
+	@Override
+	public void postSplit(ObserverContext<RegionCoprocessorEnvironment> e, Region l, Region r) throws IOException {
+		// TODO Auto-generated method stub
+		super.postSplit(e, l, r);
 	}
 	
 	@Override
@@ -237,11 +267,18 @@ public class IndexRegionObserver extends BaseRegionObserver {
 						Iterator<StoreFile> iter = files.iterator();
 						while(iter.hasNext()){
 							StoreFile file = iter.next();
+							if(Bytes.equals(key, file.getFirstKey())){
+								Reader r = file.createReader();
+								HFile.Reader hfileReader = r.getHFileReader();
+								
+								HFileScanner scanner = hfileReader.getScanner(true, true);
+								LOG.info("Key is Correct");
+							}
 							
-							Reader r = file.createReader();
-							HFile.Reader hfileReader = r.getHFileReader();
-							
-							HFileScanner scanner = hfileReader.getScanner(true, true);
+//							Reader r = file.createReader();
+//							HFile.Reader hfileReader = r.getHFileReader();
+//							
+//							HFileScanner scanner = hfileReader.getScanner(true, true);
 							//Cell c = 
 							//scanner.seekTo()
 							//StoreFileScanner storescanner = r.getStoreFileScanner(false, false);
@@ -252,7 +289,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 //							scanner.seekTo();
 //							key = scanner.getKey().array();
 //							LOG.info("seek key"+key);
-							LOG.info("seek key"+hfileReader.getFirstRowKey());
+//							LOG.info("seek key"+hfileReader.getFirstRowKey());
 						}
 
 					}else{
