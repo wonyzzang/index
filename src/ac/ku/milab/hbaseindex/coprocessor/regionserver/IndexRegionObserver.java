@@ -216,15 +216,96 @@ public class IndexRegionObserver extends BaseRegionObserver {
 //		}
 //		return super.preFlush(ctx, store, scanner);
 //	}
+	@Override
+	public void postCompact(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store, StoreFile resultFile)
+			throws IOException {
+		// TODO Auto-generated method stub
+		
+		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+		String tableName = tName.getNameAsString();
+
+		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+		if (isUserTable) {
+			LOG.info("PostCompact start");
+
+			ArrayList<String> array = new ArrayList<String>();
+			long startTime = Long.MAX_VALUE;
+			long endTime = Long.MIN_VALUE;
+			double lat1 = 90.0;
+			double lon1 = 180;
+			double lat2 = 0;
+			double lon2 = 0;
+
+			byte[] firstKey = resultFile.getFirstKey();
+			// key = firstKey;
+			LOG.info("First Key is " + firstKey);
+			HFileScanner scanner = resultFile.getReader().getHFileReader().getScanner(false, false);
+			if (scanner.seekTo()) {
+				while (true) {
+					Cell c = scanner.getKeyValue();
+					byte[] qualifier = CellUtil.cloneQualifier(c);
+					if (Bytes.equals(qualifier, Bytes.toBytes("car_num"))) {
+						String number = Bytes.toString(CellUtil.cloneValue(c));
+						LOG.info("-c-number is " + number);
+						boolean isExist = false;
+						for (int i = 0; i < array.size(); i++) {
+							if (number.equals(array.get(i))) {
+								isExist = true;
+								break;
+							}
+						}
+						if (isExist == false) {
+							array.add(number);
+						}
+					} else if (Bytes.equals(qualifier, Bytes.toBytes("time"))) {
+						long time = Bytes.toLong(CellUtil.cloneValue(c));
+						if (time > endTime) {
+							endTime = time;
+						}
+						if (time < startTime) {
+							startTime = time;
+						}
+					} else if (Bytes.equals(qualifier, Bytes.toBytes("lat"))) {
+						double lat = Bytes.toDouble(CellUtil.cloneValue(c));
+						if (lat > lat2) {
+							lat2 = lat;
+						}
+						if (lat < lat1) {
+							lat1 = lat;
+						}
+					} else if (Bytes.equals(qualifier, Bytes.toBytes("lon"))) {
+						double lon = Bytes.toDouble(CellUtil.cloneValue(c));
+						if (lon > lon2) {
+							lon2 = lon;
+						}
+						if (lon < lon1) {
+							lon1 = lon;
+						}
+					}
+					if (!scanner.next()) {
+						LOG.info("CNT is " + cnt);
+						StoreFileWrapper wrap = new StoreFileWrapper(firstKey, array, startTime, endTime, lat1, lon1,
+								lat2, lon2);
+						wrap.print();
+						break;
+					}
+					cnt++;
+				}
+
+			}
+		}
+	}
 
 	@Override
 	public void postFlush(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store, StoreFile resultFile)
 			throws IOException {
 		// TODO Auto-generated method stub
-		LOG.info("PostFlush start");
+		
 
 		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
 		String tableName = tName.getNameAsString();
+		
+		LOG.info("PostFlush start " + tableName);
 
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 		if (isUserTable) {
@@ -247,6 +328,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 					byte[] qualifier = CellUtil.cloneQualifier(c);
 					if (Bytes.equals(qualifier, Bytes.toBytes("car_num"))) {
 						String number = Bytes.toString(CellUtil.cloneValue(c));
+						LOG.info("-f-number is " + number);
 						boolean isExist = false;
 						for (int i = 0; i < array.size(); i++) {
 							if (number.equals(array.get(i))) {
