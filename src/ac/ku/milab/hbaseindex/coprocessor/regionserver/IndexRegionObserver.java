@@ -85,19 +85,21 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	private static final Log LOG = LogFactory.getLog(IndexRegionObserver.class.getName());
 
 	// private IdxManager indexManager = IdxManager.getInstance();
-	//private static RTree<byte[], Geometry> regionRTree = RTree.star().create();
+	// private static RTree<byte[], Geometry> regionRTree =
+	// RTree.star().create();
 	// private static RoaringBitmap bitmap = new RoaringBitmap();
 
 	private static final byte[] COLUMN_FAMILY = Bytes.toBytes("cf1");
 
-	//private static List<byte[]> memStoreList = new ArrayList<byte[]>();
-	//private static ArrayList<StoreFileWrapper> wrapperList = new ArrayList<StoreFileWrapper>();
+	// private static List<byte[]> memStoreList = new ArrayList<byte[]>();
+	// private static ArrayList<StoreFileWrapper> wrapperList = new
+	// ArrayList<StoreFileWrapper>();
 	private static HashMap<byte[], StoreFileWrapper> wrapperMap = new HashMap<byte[], StoreFileWrapper>();
 
 	// private static byte[] key = null;
 	private static int count = 0;
 	private static int cnt = 0;
-	
+
 	private static int wrapperNumber = 0;
 
 	@Override
@@ -117,20 +119,29 @@ public class IndexRegionObserver extends BaseRegionObserver {
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 		if (isUserTable) {
 			Filter fil = scan.getFilter();
-			if (fil != null && fil instanceof SingleColumnFilterWrapper) {
+			//if (fil != null && fil instanceof SingleColumnFilterWrapper) {
+			if (true) {
 				LOG.info("preScannerOpen Filter set");
 				DefaultMemStore memstore = new DefaultMemStore();
 				List<KeyValueScanner> list = memstore.getScanners(0);
-				SingleColumnFilterWrapper SCVFilter = (SingleColumnFilterWrapper) fil;
-				byte[] targetValue = SCVFilter.getTargetValue();
-				ArrayList<StoreFile> storeFileList= (ArrayList) store.getStorefiles();
-				double lat = Bytes.toLong(targetValue);
-				ArrayList<StoreFileWrapper> storeFileWrapList = (ArrayList) wrapperMap.values();
-				for(StoreFileWrapper wrapper : storeFileWrapList){
-					if(wrapper.x1 >= lat){
+//				SingleColumnFilterWrapper SCVFilter = (SingleColumnFilterWrapper) fil;
+//				byte[] targetValue = SCVFilter.getTargetValue();
+//				ArrayList<StoreFile> storeFileList = (ArrayList) store.getStorefiles();
+				Collection<StoreFile> collectionStoreFiles = store.getStorefiles();
+//				double lat = Bytes.toLong(targetValue);
+				double lat = 110.0;
+//				ArrayList<StoreFileWrapper> storeFileWrapList = (ArrayList) wrapperMap.values();
+				Collection<StoreFileWrapper> collectionWrapper = wrapperMap.values();
+				Iterator<StoreFileWrapper>	iterWrapper = collectionWrapper.iterator();
+				Iterator<StoreFile> iterStoreFile = collectionStoreFiles.iterator();
+				while(iterWrapper.hasNext()){
+					StoreFileWrapper wrapper = iterWrapper.next();
+					if (wrapper.x1 >= lat) {
 						byte[] key = wrapper.startKey;
-						for(StoreFile file : storeFileList){
-							if(Bytes.equals(key, file.getFirstKey())){
+						
+						while(iterStoreFile.hasNext()){
+							StoreFile file = iterStoreFile.next();
+							if (Bytes.equals(key, file.getFirstKey())) {
 								list.add(file.createReader().getStoreFileScanner(true, true));
 								LOG.info("preStoreScanner Condition Complete");
 								break;
@@ -140,9 +151,26 @@ public class IndexRegionObserver extends BaseRegionObserver {
 				}
 				Scan newScan = new Scan();
 				ScanInfo info = store.getScanInfo();
-				
+
 				StoreScanner resultScanner = new StoreScanner(store, info, newScan, list, ScanType.USER_SCAN, 0, 0);
 				return resultScanner;
+//				for (StoreFileWrapper wrapper : storeFileWrapList) {
+//					if (wrapper.x1 >= lat) {
+//						byte[] key = wrapper.startKey;
+//						for (StoreFile file : storeFileList) {
+//							if (Bytes.equals(key, file.getFirstKey())) {
+//								list.add(file.createReader().getStoreFileScanner(true, true));
+//								LOG.info("preStoreScanner Condition Complete");
+//								break;
+//							}
+//						}
+//					}
+//				}
+//				Scan newScan = new Scan();
+//				ScanInfo info = store.getScanInfo();
+//
+//				StoreScanner resultScanner = new StoreScanner(store, info, newScan, list, ScanType.USER_SCAN, 0, 0);
+//				return resultScanner;
 				// Observable<Entry<byte[], Geometry>> entries = regionRTree
 				// .search(RTreeRectangle.create(129.4f, 110.5f, 129.9f,
 				// 110.9f));
@@ -188,9 +216,11 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			}
 
 		} else {
-//			Observable<Entry<byte[], Geometry>> entries = regionRTree.entries();
-//			List<Entry<byte[], Geometry>> list = entries.toList().toBlocking().single();
-//			LOG.info("number of entry" + list.size());
+			// Observable<Entry<byte[], Geometry>> entries =
+			// regionRTree.entries();
+			// List<Entry<byte[], Geometry>> list =
+			// entries.toList().toBlocking().single();
+			// LOG.info("number of entry" + list.size());
 			return s;
 		}
 		return s;
@@ -249,7 +279,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	// }
 	// return super.preFlush(ctx, store, scanner);
 	// }
-	
+
 	@Override
 	public InternalScanner preCompactScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store,
 			List<? extends KeyValueScanner> scanners, ScanType scanType, long earliestPutTs, InternalScanner s,
@@ -260,17 +290,18 @@ public class IndexRegionObserver extends BaseRegionObserver {
 
 		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
 		if (isUserTable) {
-			for(KeyValueScanner scanner : scanners){
-				if(scanner instanceof StoreFileScanner){
+			for (KeyValueScanner scanner : scanners) {
+				if (scanner instanceof StoreFileScanner) {
 					StoreFileScanner SFScanner = (StoreFileScanner) scanner;
 					byte[] firstKey = CellUtil.getCellKeySerializedAsKeyValueKey(SFScanner.next());
 					LOG.info("preCompact - first key is " + firstKey);
 				}
-				
+
 			}
 		}
 		return super.preCompactScannerOpen(ctx, store, scanners, scanType, earliestPutTs, s, request);
 	}
+
 	@Override
 	public void postCompact(ObserverContext<RegionCoprocessorEnvironment> ctx, Store store, StoreFile resultFile)
 			throws IOException {
@@ -301,7 +332,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 					byte[] qualifier = CellUtil.cloneQualifier(c);
 					if (Bytes.equals(qualifier, Bytes.toBytes("car_num"))) {
 						String number = Bytes.toString(CellUtil.cloneValue(c));
-						//LOG.info("-c-number is " + number);
+						// LOG.info("-c-number is " + number);
 						boolean isExist = false;
 						for (int i = 0; i < array.size(); i++) {
 							if (number.equals(array.get(i))) {
@@ -344,8 +375,8 @@ public class IndexRegionObserver extends BaseRegionObserver {
 						wrap.print();
 						wrapperNumber++;
 						wrapperMap.put(firstKey, wrap);
-						//wrapperList.add(wrap);
-						cnt=0;
+						// wrapperList.add(wrap);
+						cnt = 0;
 						break;
 					}
 					cnt++;
@@ -386,7 +417,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 					byte[] qualifier = CellUtil.cloneQualifier(c);
 					if (Bytes.equals(qualifier, Bytes.toBytes("car_num"))) {
 						String number = Bytes.toString(CellUtil.cloneValue(c));
-						//LOG.info("-f-number is " + number);
+						// LOG.info("-f-number is " + number);
 						boolean isExist = false;
 						for (int i = 0; i < array.size(); i++) {
 							if (number.equals(array.get(i))) {
@@ -428,9 +459,9 @@ public class IndexRegionObserver extends BaseRegionObserver {
 								lat2, lon2);
 						wrap.print();
 						wrapperNumber++;
-						//wrapperList.add(wrap);
+						// wrapperList.add(wrap);
 						wrapperMap.put(firstKey, wrap);
-						cnt=0;
+						cnt = 0;
 						break;
 					}
 					cnt++;
@@ -486,7 +517,7 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			double dLat = Bytes.toDouble(lat);
 			double dLon = Bytes.toDouble(lon);
 
-			//byte[] tCarNum = CarNumCovertor.convert(carNum);
+			// byte[] tCarNum = CarNumCovertor.convert(carNum);
 
 			byte[] rowKey = put.getRow();
 			// RTreePoint rp = RTreePoint.create((float) dLat, (float) dLon);
@@ -496,10 +527,10 @@ public class IndexRegionObserver extends BaseRegionObserver {
 			// + dLon);
 			// memStoreList.add(rowKey);
 			count++;
-			 if (count == 100) {
-			 ctx.getEnvironment().getRegion().flush(true);
-			 count = 0;
-			 }
+			if (count == 100) {
+				ctx.getEnvironment().getRegion().flush(true);
+				count = 0;
+			}
 
 		}
 	}
@@ -514,8 +545,54 @@ public class IndexRegionObserver extends BaseRegionObserver {
 	public void postPut(ObserverContext<RegionCoprocessorEnvironment> ctx, Put put, WALEdit edit, Durability durability)
 			throws IOException {
 		// TODO Auto-generated method stub
-		//Store s = ctx.getEnvironment().getRegion().getStore(COLUMN_FAMILY);
+		// Store s = ctx.getEnvironment().getRegion().getStore(COLUMN_FAMILY);
 	}
+//
+//	@Override
+//	public RegionScanner preScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Scan scan, RegionScanner s)
+//			throws IOException {
+//		// TODO Auto-generated method stub
+//		
+//		TableName tName = ctx.getEnvironment().getRegionInfo().getTable();
+//		String tableName = tName.getNameAsString();
+//		
+//		LOG.info("preScannerOpen START1 : " + tableName);
+//		
+//		// // if table is not user table, it is not performed
+//		boolean isUserTable = TableUtils.isUserTable(Bytes.toBytes(tableName));
+//		if (isUserTable) {
+//			Filter fil = scan.getFilter();
+//			if (fil != null && fil instanceof SingleColumnFilterWrapper) {
+//				Store store = ctx.getEnvironment().getRegion().getStore(Bytes.toBytes("cf1"));
+//				LOG.info("preScannerOpen Filter set");
+//				DefaultMemStore memstore = new DefaultMemStore();
+//				List<KeyValueScanner> list = memstore.getScanners(0);
+//				SingleColumnFilterWrapper SCVFilter = (SingleColumnFilterWrapper) fil;
+//				byte[] targetValue = SCVFilter.getTargetValue();
+//				ArrayList<StoreFile> storeFileList= (ArrayList) store.getStorefiles();
+//				double lat = Bytes.toLong(targetValue);
+//				ArrayList<StoreFileWrapper> storeFileWrapList = (ArrayList) wrapperMap.values();
+//				for(StoreFileWrapper wrapper : storeFileWrapList){
+//					if(wrapper.x1 >= lat){
+//						byte[] key = wrapper.startKey;
+//						for(StoreFile file : storeFileList){
+//							if(Bytes.equals(key, file.getFirstKey())){
+//								list.add(file.createReader().getStoreFileScanner(true, true));
+//								LOG.info("preStoreScanner Condition Complete");
+//								break;
+//							}
+//						}
+//					}
+//				}
+//				Scan newScan = new Scan();
+//				ScanInfo info = store.getScanInfo();
+//				
+//				StoreScanner resultScanner = new StoreScanner(store, info, newScan, list, ScanType.USER_SCAN, 0, 0);
+//				return resultScanner;
+//				
+//			}
+//		return super.preScannerOpen(ctx, scan, s);
+//	}
 
 //	@Override
 //	public RegionScanner preScannerOpen(ObserverContext<RegionCoprocessorEnvironment> ctx, Scan scan, RegionScanner s)
